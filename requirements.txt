@@ -1,0 +1,17 @@
+asyncio
+sqlalchemy
+asyncpg
+aioboto3
+pydantic-settings
+python-multipart
+python-dotenv
+fastapi
+uvicorn[standard]
+aiogram==3.24.0
+cryptography
+redis
+
+hsr-cards
+git+https://github.com/Akane7101/StarRailCard.git
+aiohttp>=3.9.0,<3.14
+pydantic>=2.4.1,<2.13

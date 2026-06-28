@@ -1,0 +1,11 @@
+pip install -r requirements.txt
+
+python -c "
+import starrailcard, os, subprocess, shutil, tempfile
+from pathlib import Path
+assets = Path(starrailcard.__file__).parent / 'src' / 'assets'
+with tempfile.TemporaryDirectory() as tmp:
+    subprocess.run(['git','clone','--depth=1','https://github.com/DEViantUA/StarRailCardData.git', tmp+'/d'], check=True)
+    shutil.copytree(tmp+'/d/asset', assets, dirs_exist_ok=True)
+print('Assets installed')
+"
