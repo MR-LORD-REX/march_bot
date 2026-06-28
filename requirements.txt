@@ -10,6 +10,7 @@ uvicorn[standard]
 aiogram==3.24.0
 cryptography
 redis
+enka
 
 hsr-cards
 git+https://github.com/Akane7101/StarRailCard.git
