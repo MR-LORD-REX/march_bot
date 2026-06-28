@@ -38,11 +38,11 @@ async def help(msg: Message):
         "/myc - see your profile cards\n"
         "/notes - see your live in-game notes (cookies required)\n"
         "/settings - customize your preferences for reminders and character template\n"
-        "/admin_help - see admin commands (admins and bot owner only)",
-        "/moc - Memory of chaos card"
-        "apoc - apocyliptic shadow card"
-        "/anomaly - anomaly card "
-        "/purefiction - PF card "
+        "/admin_help - see admin commands (admins and bot owner only)\n"
+        "/moc - Memory of chaos card\n"
+        "/apoc - apocyliptic shadow card\n"
+        "/anomaly - anomaly card\n"
+        "/purefiction - PF card\n"
     )
     await msg.reply(text, parse_mode=None)
     
