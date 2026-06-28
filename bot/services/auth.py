@@ -135,7 +135,7 @@ async def token_login(session:AsyncSession,tele_id:int,token:Dict[str,str]) -> L
             success=False,
             msg="Invalid Token"
         )
-    tk=f"{token.get("ltoken_v2")}||{token.get("ltuid_v2")}"
+    tk=f"{token.get('ltoken_v2')}||{token.get('ltuid_v2')}"
     enc_token=encrypt_token(tk)
     await GameIDs_repo(session).add_auth_token(tele_id,enc_token)
     return LoginResp(
