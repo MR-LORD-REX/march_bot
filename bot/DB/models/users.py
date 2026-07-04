@@ -10,8 +10,8 @@ class Users(base):
     __tablename__='users'
 
     telegram_id:Mapped[int]=mapped_column(BIGINT,primary_key=True)
-    username:Mapped[str]=mapped_column(String(255))
-    display_name:Mapped[str]=mapped_column(String(255))
+    username:Mapped[str]=mapped_column(String(255),nullable=True)
+    display_name:Mapped[str]=mapped_column(String(255),nullable=True)
     banned:Mapped[bool]=mapped_column(default=False)
     warns:Mapped[int]=mapped_column(Integer,default=0)
     
