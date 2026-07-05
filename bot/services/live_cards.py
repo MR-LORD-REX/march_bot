@@ -10,6 +10,8 @@ from bot.DB.repo.user_setting_repo import UserSettingsRepo
 from bot.utils.images import image_to_tgFile
 from bot.utils.auth import decrypt_token
 
+from hsr_cards.models.auth import Cookies
+
 logger=logging.getLogger(__name__)
 
 class LiveStatsRes(BaseModel):
@@ -38,6 +40,21 @@ class EventsRes(BaseModel):
     card: Image.Image | None
     success: bool
     msg: str
+
+
+async def _get_active_uid_and_cookie(db_session, tele_id: int):
+    game_id = await GameIDs_repo(db_session).get_active_UID(tele_id)
+    if not game_id:
+        return None, None, "No active game ID found. Please login using /login or /switch."
+
+    cookie = None
+    if game_id.auth_token:
+        try:
+            cookie = decrypt_token(game_id.auth_token)
+        except Exception as exc:
+            logger.warning(f"Failed to decrypt auth token for user {tele_id}: {exc}")
+
+    return game_id.game_id, cookie, None
     
 async def get_live_stats_card(db_session,tele_id:int)->LiveStatsRes:
     ## Don't use caching , it uses internal cache
@@ -118,7 +135,6 @@ async def send_recovery_notification(tele_id:int, retries:int=3):
                 if attempt == retries - 1:
                     logger.error(f"Failed to send recovery notification to user {tele_id} after {retries} attempts.")
                     
-# daily reminder of daily tasks IST 10:00 PM 
 
 async def send_daily_reminder():
     from bot.core.main import bot
@@ -151,19 +167,16 @@ async def send_daily_reminder():
                 logger.error(f"Error sending daily reminder to user {tele_id}: {str(e)}")
                 await asyncio.sleep(10)
 
-                
-# ---------------------------------------------------------------------------
-# Public (no-cookie) card generators — Banners & Events
-# ---------------------------------------------------------------------------
 
-async def get_banners_card(uid: str) -> BannersRes:
-    """Render the current HSR banner card.
 
-    No authentication required — the calendar API is public.
-    ``uid`` is only used to resolve the correct server region.
-    """
+async def get_banners_card(db_session, tele_id: int) -> BannersRes:
+    """Render the current HSR banner card for the user's active UID."""
+    uid, cookie, error_msg = await _get_active_uid_and_cookie(db_session, tele_id)
+    if error_msg:
+        return BannersRes(card=None, success=False, msg=error_msg)
+
     try:
-        async with HonkaiStarrail(uid=uid) as hsr:
+        async with HonkaiStarrail(uid=uid, cookie=cookie) as hsr:
             card = await hsr.banners()
         return BannersRes(
             card=card,
@@ -179,14 +192,14 @@ async def get_banners_card(uid: str) -> BannersRes:
         )
 
 
-async def get_events_card(uid: str) -> EventsRes:
-    """Render the current HSR in-game events card.
+async def get_events_card(db_session, tele_id: int) -> EventsRes:
+    """Render the current HSR in-game events card for the user's active UID."""
+    uid, cookie, error_msg = await _get_active_uid_and_cookie(db_session, tele_id)
+    if error_msg:
+        return EventsRes(card=None, success=False, msg=error_msg)
 
-    No authentication required — the calendar API is public.
-    ``uid`` is only used to resolve the correct server region.
-    """
     try:
-        async with HonkaiStarrail(uid=uid) as hsr:
+        async with HonkaiStarrail(uid=uid, cookie=cookie) as hsr:
             card = await hsr.events()
         return EventsRes(
             card=card,
@@ -201,14 +214,14 @@ async def get_events_card(uid: str) -> EventsRes:
             msg="Failed to fetch events. Please try again later.",
         )
         
-async def get_endgame_card(uid: str) -> EventsRes:
-    """Render the current HSR endgame card.
+async def get_endgame_card(db_session, tele_id: int) -> EventsRes:
+    """Render the current HSR endgame card for the user's active UID."""
+    uid, cookie, error_msg = await _get_active_uid_and_cookie(db_session, tele_id)
+    if error_msg:
+        return EventsRes(card=None, success=False, msg=error_msg)
 
-    No authentication required — the calendar API is public.
-    ``uid`` is only used to resolve the correct server region.
-    """
     try:
-        async with HonkaiStarrail(uid=uid) as hsr:
+        async with HonkaiStarrail(uid=uid, cookie=cookie) as hsr:
             card = await hsr.endgame()
         return EventsRes(
             card=card,

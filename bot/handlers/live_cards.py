@@ -10,6 +10,7 @@ from datetime import datetime, timezone , timedelta
 from bot.config.config import users_record, scheduler
 from bot.DB.repo.scheduler_repo import SchedulerRepo
 from bot.DB.repo.game_ids_repo import GameIDs_repo
+from bot.utils.auth import decrypt_token
 
 from bot.services.live_cards import (
     get_live_stats_card,
@@ -110,16 +111,11 @@ async def handle_banners(msg: Message, db_session: AsyncSession):
         await msg.reply("Please register a UID first using /login.")
         return
     try:
-        await msg.react([ReactionTypeEmoji(emoji="⭐")])
+        await msg.react([ReactionTypeEmoji(emoji="💵")])
     except Exception as e:
         logger.error(f"error while reacting to message: {e}")
 
-    game_id = await GameIDs_repo(db_session).get_active_UID(tele_id)
-    if not game_id:
-        await msg.reply("No active UID found. Please use /login or /switch.")
-        return
-
-    res = await get_banners_card(game_id.game_id)
+    res = await get_banners_card(db_session, tele_id)
     if res.success and res.card:
         file = await image_to_tgFile(res.card)
         await msg.reply_photo(photo=file, caption=res.msg)
@@ -139,12 +135,7 @@ async def handle_events(msg: Message, db_session: AsyncSession):
     except Exception as e:
         logger.error(f"error while reacting to message: {e}")
 
-    game_id = await GameIDs_repo(db_session).get_active_UID(tele_id)
-    if not game_id:
-        await msg.reply("No active UID found. Please use /login or /switch.")
-        return
-
-    res = await get_events_card(game_id.game_id)
+    res = await get_events_card(db_session, tele_id)
     if res.success and res.card:
         file = await image_to_tgFile(res.card)
         await msg.reply_photo(photo=file, caption=res.msg)
@@ -162,13 +153,8 @@ async def handle_endgames(msg: Message, db_session: AsyncSession):
         await msg.react([ReactionTypeEmoji(emoji="🏆")])
     except Exception as e:
         logger.error(f"error while reacting to message: {e}")
-
-    game_id = await GameIDs_repo(db_session).get_active_UID(tele_id)
-    if not game_id:
-        await msg.reply("No active UID found. Please use /login or /switch.")
-        return
-
-    res = await get_endgame_card(str(game_id.game_id))
+        
+    res = await get_endgame_card(db_session, tele_id)
     if res.success and res.card:
         file = await image_to_tgFile(res.card)
         await msg.reply_photo(photo=file, caption=res.msg)
