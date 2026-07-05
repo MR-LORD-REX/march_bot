@@ -35,6 +35,7 @@ async def bot_added_to_group(update: ChatMemberUpdated):
                 logger.info(f"Bot already in group: {group_name} (ID: {group_id})")
     except Exception as e:
         logger.error(f"error adding group: {e}")
+    await load_groups(session, groups_record)  
 
 @rt.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=LEFT))
 async def bot_removed_from_group(update: ChatMemberUpdated):
@@ -53,6 +54,7 @@ async def bot_removed_from_group(update: ChatMemberUpdated):
                 logger.warning(f"Group not found in database: {group_id}")
     except Exception as e:
         logger.error(f"error removing group: {e}")
+    await load_groups(session, groups_record)
 
 
 
@@ -113,7 +115,10 @@ async def handle_all_messages(message: Message,db_session: AsyncSession):
                         else:
                             logger.warning(f" FAILED: User {user_id} not found in database for update (DM)")
             await db_session.commit()
+            await load_users(db_session, users_record)
+            await load_groups(db_session, groups_record)
         except Exception as e:
             logger.error(f" ERROR: Failed to update user-group cache | User: {user_id} | Group: {group_id} | Error: {e}", exc_info=True)
     except Exception as e:
         logger.error(f" ERROR: Critical error in handle_all_messages: {e}", exc_info=True)
+    

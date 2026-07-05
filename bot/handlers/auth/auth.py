@@ -7,6 +7,7 @@ import logging
 
 from bot.config.config import CHANNEL_LINK
 from bot.services.auth import login , check_user , switch , logout , token_login , token_logout
+from bot.services.UG_cache import load_users , load_groups
 from bot.DB.repo.game_ids_repo import GameIDs_repo
 from bot.handlers.auth.kb import make_switch_kb
 
@@ -27,6 +28,8 @@ async def handle_login(msg:Message,db_session:AsyncSession):
     await msg.reply(f"{res.msg}", reply_markup=kb.as_markup(), parse_mode=None)
     if res.success:
         await db_session.commit()
+    from bot.config.config import users_record
+    await load_users(db_session,users_record)
         
 @rt.message(Command("myuid"))
 async def handle_myuid(msg:Message,db_session:AsyncSession):
@@ -60,6 +63,8 @@ async def handle_logout(msg:Message,db_session:AsyncSession):
     
     if res.success:
         await db_session.commit()
+    from bot.config.config import users_record
+    await load_users(db_session,users_record)
         
 @rt.message(Command("token_login"))
 async def handle_token_login(msg:Message,db_session:AsyncSession):
@@ -81,6 +86,8 @@ async def handle_token_login(msg:Message,db_session:AsyncSession):
         await msg.delete()
     else:
         await db_session.rollback()
+    from bot.config.config import users_record
+    await load_users(db_session,users_record)
         
 @rt.message(Command("token_logout"))
 async def handle_logout(msg:Message,db_session:AsyncSession):
