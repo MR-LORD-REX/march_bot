@@ -200,3 +200,25 @@ async def get_events_card(uid: str) -> EventsRes:
             success=False,
             msg="Failed to fetch events. Please try again later.",
         )
+        
+async def get_endgame_card(uid: str) -> EventsRes:
+    """Render the current HSR endgame card.
+
+    No authentication required — the calendar API is public.
+    ``uid`` is only used to resolve the correct server region.
+    """
+    try:
+        async with HonkaiStarrail(uid=uid) as hsr:
+            card = await hsr.endgame()
+        return EventsRes(
+            card=card,
+            success=True,
+            msg="Current Honkai: Star Rail endgame",
+        )
+    except Exception as e:
+        logger.error(f"Error fetching endgame card: {e}")
+        return EventsRes(
+            card=None,
+            success=False,
+            msg="Failed to fetch endgame. Please try again later.",
+        )

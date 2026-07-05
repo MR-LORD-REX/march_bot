@@ -17,6 +17,7 @@ from bot.services.live_cards import (
     get_events_card,
     send_daily_reminder,
     send_recovery_notification,
+    get_endgame_card,
     # send_weekly_reminder
 )
 
@@ -56,25 +57,6 @@ async def handle_notes(msg:Message,db_session:AsyncSession):
     else:
         await msg.reply(res.msg)
         
-@rt.message(Command("factory"))
-async def handle_factory(msg:Message,db_session:AsyncSession):
-    tele_id=msg.from_user.id
-    if not users_record.is_registered(tele_id):
-        await msg.reply("please login using /login")
-        return
-    try:
-        await msg.react([ReactionTypeEmoji(emoji="👍")])
-    except Exception as e:
-        logger.error(f"error while reacting to message: {e}")
-    res=await get_live_factory_card(db_session,tele_id)
-    if not res:
-        await msg.reply("failed to generate live factory card")
-        return
-    if res.success:
-        file=await image_to_tgFile(res.card)
-        await msg.reply_photo(photo=file,caption=res.msg)
-    else:
-        await msg.reply(res.msg)
     
 @rt.callback_query(lambda c: c.data and c.data.startswith("sanity:"))
 async def handle_recovery_reminder(callback_query:CallbackQuery,db_session:AsyncSession):
@@ -163,6 +145,30 @@ async def handle_events(msg: Message, db_session: AsyncSession):
         return
 
     res = await get_events_card(game_id.game_id)
+    if res.success and res.card:
+        file = await image_to_tgFile(res.card)
+        await msg.reply_photo(photo=file, caption=res.msg)
+    else:
+        await msg.reply(res.msg)
+
+@rt.message(Command("endgames"))
+async def handle_endgames(msg: Message, db_session: AsyncSession):
+    """Show current Honkai: Star Rail endgame content — no auth needed."""
+    tele_id = msg.from_user.id
+    if not users_record.is_registered(tele_id):
+        await msg.reply("Please register a UID first using /login.")
+        return
+    try:
+        await msg.react([ReactionTypeEmoji(emoji="🏆")])
+    except Exception as e:
+        logger.error(f"error while reacting to message: {e}")
+
+    game_id = await GameIDs_repo(db_session).get_active_UID(tele_id)
+    if not game_id:
+        await msg.reply("No active UID found. Please use /login or /switch.")
+        return
+
+    res = await get_endgame_card(str(game_id.game_id))
     if res.success and res.card:
         file = await image_to_tgFile(res.card)
         await msg.reply_photo(photo=file, caption=res.msg)
