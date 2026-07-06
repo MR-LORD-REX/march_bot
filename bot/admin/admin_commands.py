@@ -53,9 +53,9 @@ async def update_assets(message: Message, db_session: AsyncSession):
         logger.warning(f"Unauthorized update_assets attempt: user {tele_id}")
         return
     try:
-        from endfield import Endfield
-        async with Endfield() as ef:
-            await ef.update_assets()
+        import starrailcard
+        async with starrailcard.Card() as src:
+            await src.create(800556377,force_update=True)
         await message.reply("Assets updated successfully")
     except Exception as e:
         await message.reply(f"Error updating assets: {e}")
