@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from typing import Dict , Any 
+import json
 import os
 import sys
 import logging
@@ -56,8 +57,13 @@ PORT=os.getenv("PORT",8000)
 _render_url = os.getenv("RENDER_EXTERNAL_URL")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL") or (_render_url if _render_url else f"http://localhost:{PORT}")
 
+
 cmdavailability: CommandsAvailability=CommandsAvailability()
 
 users_record:UsersRecord=UsersRecord()
 groups_record:GroupsRecord=GroupsRecord()
 scheduler=Scheduler()
+
+proxies = os.getenv("proxies","[]")
+proxies = json.loads(proxies) if proxies else []
+print(f"Loaded proxies: {proxies}")

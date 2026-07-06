@@ -7,10 +7,12 @@ import logging
 from pydantic import BaseModel , ConfigDict
 from PIL import Image
 import ast
+import random
 
 from bot.DB.repo.game_ids_repo import GameIDs_repo
 from bot.DB.repo.user_setting_repo import UserSettingsRepo
 from bot.DB.repo.cache_repo import CacheRepo
+from bot.config.config import proxies
 
 logger=logging.getLogger(__name__)
 
@@ -50,7 +52,8 @@ async def get_profile_card(session:AsyncSession,tele_id:int)->ProfileRes|None:
             data=chars
         )
     try:
-        async with starrailcard.Card(asset_save=True) as cards:
+        px=random.choice(proxies) if proxies else None
+        async with starrailcard.Card(asset_save=True,proxy=px) as cards:
             card = await cards.create_profile(uid.game_id)
             chars=[]
             for cn , cid in zip(card.character_name,card.character_id):
@@ -78,7 +81,8 @@ async def get_character_card(session:AsyncSession,tele_id:int,slot:int)-> CharRe
                 data=cached.data
             )
     try: 
-        async with starrailcard.Card(character_id=str(slot), seeleland=True) as cards:
+        px=random.choice(proxies) if proxies else None
+        async with starrailcard.Card(character_id=str(slot), seeleland=True,proxy=px) as cards:
             card = await cards.create(uid.game_id,style=settings.character_template)
 
             return CharRes(
