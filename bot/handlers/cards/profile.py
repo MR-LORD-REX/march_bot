@@ -82,7 +82,7 @@ async def handle_ccard(cb:CallbackQuery,db_session:AsyncSession):
     res=await get_character_card(db_session,tele_id,slot)
     if not res or not getattr(res, "card", None):
         uid=await GameIDs_repo(db_session).get_active_UID(tele_id)
-        kb=make_report_keboard(tele_id,uid.game_id,r_type='CHAR',slot=slot)
+        kb=make_report_keboard(tele_id,uid.game_id,r_type='CHAR')
         await cb.message.edit_text("failed to generate character card , press report to report the issue to the bot admins ",reply_markup=kb)
         return
     kb=make_back_kb(tele_id)
