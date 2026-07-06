@@ -66,9 +66,10 @@ async def update_assets(message: Message, db_session: AsyncSession):
             for px in proxies:
                 try:
                     import starrailcard
-                    async with starrailcard.Card(character_id="1212",asset_save=True,proxy=px) as src:
+                    async with starrailcard.Card(asset_save=True,proxy=px) as src:
                         await src.create(800556377,force_update=True)
                     await message.reply(f"Assets updated successfully with proxy {px}")
+                    return
                 except Exception as e:
                     logger.error(f"Error updating assets with proxy {px}: {e}")
                     continue

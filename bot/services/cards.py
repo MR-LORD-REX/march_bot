@@ -82,7 +82,7 @@ async def get_character_card(session:AsyncSession,tele_id:int,slot:int)-> CharRe
             )
     try: 
         px=random.choice(proxies) if proxies else None
-        async with starrailcard.Card(character_id=str(slot), seeleland=True,proxy=px) as cards:
+        async with starrailcard.Card(character_id=str(slot), seeleland=True,proxy=px,asset_save=True) as cards:
             card = await cards.create(uid.game_id,style=settings.character_template)
 
             return CharRes(
