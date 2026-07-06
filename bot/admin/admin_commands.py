@@ -15,6 +15,15 @@ from bot.DB.repo.cmd_meta_repo import CommandMetaRepo
 rt = Router()
 logger = logging.getLogger(__name__)
 
+proxies=None
+
+try:
+    with open("proxies.json", "r") as f:
+        import json
+        proxies = json.load(f)
+except Exception as e:
+    logger.warning(f"Could not load proxies.json: {e}")
+
 
 def setup_admin_kb() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
@@ -53,10 +62,22 @@ async def update_assets(message: Message, db_session: AsyncSession):
         logger.warning(f"Unauthorized update_assets attempt: user {tele_id}")
         return
     try:
-        import starrailcard
-        async with starrailcard.Card() as src:
-            await src.create(800556377,force_update=True)
-        await message.reply("Assets updated successfully")
+        if proxies:
+            for px in proxies:
+                try:
+                    import starrailcard
+                    async with starrailcard.Card(character_id="1212",asset_save=True,proxy=px) as src:
+                        await src.create(800556377,force_update=True)
+                    await message.reply(f"Assets updated successfully with proxy {px}")
+                except Exception as e:
+                    logger.error(f"Error updating assets with proxy {px}: {e}")
+                    continue
+            await message.reply("Assets update completed with proxies.")
+        else:
+            import starrailcard
+            async with starrailcard.Card(character_id="1212",asset_save=True) as src:
+                await src.create(800556377,force_update=True)
+            await message.reply("Assets updated successfully without proxy.")
     except Exception as e:
         await message.reply(f"Error updating assets: {e}")
     
