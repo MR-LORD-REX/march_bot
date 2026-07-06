@@ -4,6 +4,9 @@ from PIL import Image
 from datetime import datetime, timezone
 import logging
 import asyncio
+from typing import List, Dict, Literal
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardButton
 
 from bot.DB.repo.game_ids_repo import GameIDs_repo
 from bot.DB.repo.user_setting_repo import UserSettingsRepo
@@ -41,6 +44,10 @@ class EventsRes(BaseModel):
     success: bool
     msg: str
 
+def make_report_keboard(tele_id:int , uid:int , r_type:Literal['PFP','CHAR',"other"]|str='PFP'):
+    kb=InlineKeyboardBuilder()
+    kb.row(InlineKeyboardButton(text="report",callback_data=f"report:{r_type}:{tele_id}:{uid}"))
+    return kb.as_markup()
 
 async def _get_active_uid_and_cookie(db_session, tele_id: int):
     game_id = await GameIDs_repo(db_session).get_active_UID(tele_id)
@@ -57,7 +64,6 @@ async def _get_active_uid_and_cookie(db_session, tele_id: int):
     return game_id.game_id, cookie, None
     
 async def get_live_stats_card(db_session,tele_id:int)->LiveStatsRes:
-    ## Don't use caching , it uses internal cache
     game_id=await GameIDs_repo(db_session).get_active_UID(tele_id)
     if not game_id:
         return LiveStatsRes(

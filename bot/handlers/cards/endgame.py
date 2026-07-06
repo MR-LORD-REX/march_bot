@@ -98,8 +98,8 @@ async def _handle_endgame_command(
         logger.error(f"error while reacting to message: {e}")
 
     res = await get_endgame_card(db_session, tele_id, c_type, sched)
-    if not res:
-        kb = make_report_keboard(tele_id, uid.game_id, r_type='PFP')
+    if not res or not getattr(res, "card", None):
+        kb = make_report_keboard(tele_id, uid.game_id, r_type=c_type)
         await msg.reply(
             "failed to generate card , press report to report the issue to the bot admins ",
             reply_markup=kb

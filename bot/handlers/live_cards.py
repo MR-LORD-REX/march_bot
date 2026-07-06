@@ -19,6 +19,7 @@ from bot.services.live_cards import (
     send_daily_reminder,
     send_recovery_notification,
     get_endgame_card,
+    make_report_keboard,
     # send_weekly_reminder
 )
 
@@ -56,6 +57,8 @@ async def handle_notes(msg:Message,db_session:AsyncSession):
         kb=get_sanity_reminder_keyboard(tele_id,res.seconds if res.seconds else 0)
         await msg.reply_photo(photo=file,caption=res.msg,reply_markup=kb)
     else:
+        uid=await GameIDs_repo(db_session).get_active_UID(tele_id)
+        kb=make_report_keboard(tele_id,uid.game_id,r_type='notes')
         await msg.reply(res.msg)
         
     
@@ -120,7 +123,9 @@ async def handle_banners(msg: Message, db_session: AsyncSession):
         file = await image_to_tgFile(res.card)
         await msg.reply_photo(photo=file, caption=res.msg)
     else:
-        await msg.reply(res.msg)
+        uid=await GameIDs_repo(db_session).get_active_UID(tele_id)
+        kb=make_report_keboard(tele_id,uid.game_id,r_type='banners')
+        await msg.reply(res.msg,reply_markup=kb)
 
 
 @rt.message(Command("events"))
@@ -140,7 +145,9 @@ async def handle_events(msg: Message, db_session: AsyncSession):
         file = await image_to_tgFile(res.card)
         await msg.reply_photo(photo=file, caption=res.msg)
     else:
-        await msg.reply(res.msg)
+        uid=await GameIDs_repo(db_session).get_active_UID(tele_id)
+        kb=make_report_keboard(tele_id,uid.game_id,r_type='events')
+        await msg.reply(res.msg,reply_markup=kb)
 
 @rt.message(Command("endgames"))
 async def handle_endgames(msg: Message, db_session: AsyncSession):
@@ -159,4 +166,6 @@ async def handle_endgames(msg: Message, db_session: AsyncSession):
         file = await image_to_tgFile(res.card)
         await msg.reply_photo(photo=file, caption=res.msg)
     else:
-        await msg.reply(res.msg)
+        uid=await GameIDs_repo(db_session).get_active_UID(tele_id)
+        kb=make_report_keboard(tele_id,uid.game_id,r_type='endgames')
+        await msg.reply(res.msg,reply_markup=kb)

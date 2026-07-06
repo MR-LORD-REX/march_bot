@@ -3,7 +3,7 @@ from typing import Literal , List , Dict
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton 
 
-def make_report_keboard(tele_id:int , uid:int , r_type:Literal['PFP','CHAR']='PFP'):
+def make_report_keboard(tele_id:int , uid:int , r_type:Literal['PFP','CHAR',"other"]|str='PFP'):
     kb=InlineKeyboardBuilder()
     kb.row(InlineKeyboardButton(text="report",callback_data=f"report:{r_type}:{tele_id}:{uid}"))
     return kb.as_markup()

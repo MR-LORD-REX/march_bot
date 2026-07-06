@@ -18,24 +18,26 @@ logger=logging.getLogger(__name__)
 
 class ProfileRes(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-        
-    cached:bool
-    card:str| Image.Image
-    data: List[Dict[str,str|int]]
-    
+
+    cached: bool
+    card: str | Image.Image | None
+    data: List[Dict[str, str | int]] | None
+
+
 class CharRes(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    
-    cached:bool
-    card:str| Image.Image
-    data: str|None
-    
+
+    cached: bool
+    card: str | Image.Image | None
+    data: str | None
+
+
 class EndRes(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    
-    cached:bool
-    card:str|Image.Image
-    data:str|None
+
+    cached: bool
+    card: str | Image.Image | None
+    data: str | None
     
 async def get_profile_card(session:AsyncSession,tele_id:int)->ProfileRes|None:
     uid=await GameIDs_repo(session).get_active_UID(tele_id)
@@ -80,19 +82,27 @@ async def get_character_card(session:AsyncSession,tele_id:int,slot:int)-> CharRe
                 card=cached.file_id,
                 data=cached.data
             )
-    try: 
+    try:
         px=random.choice(proxies) if proxies else None
         async with starrailcard.Card(character_id=str(slot), seeleland=True,proxy=px,asset_save=True) as cards:
             card = await cards.create(uid.game_id,style=settings.character_template)
-
+            card_payload = None
+            if getattr(card, 'card', None) is not None:
+                if type(card.card) == Image.Image:
+                    card_payload = card.card
+                elif isinstance(card.card, list) and card.card:
+                    card_payload = card.card[0].card if getattr(card.card[0], 'card', None) is not None else None
+            if not card_payload:
+                logger.warning(f"Character card generation returned no payload for slot {slot}")
+                return CharRes(cached=False, card=None, data=str(slot))
             return CharRes(
                 cached=False,
-                card=card.card if type(card.card)==Image.Image else card.card[0].card,
+                card=card_payload,
                 data=str(slot)
             )
     except Exception as e:
         logging.error(f"error while generating profile card : {e}")
-        return None
+        return CharRes(cached=False, card=None, data=str(slot))
     
 async def get_endgame_card(
     session:AsyncSession,

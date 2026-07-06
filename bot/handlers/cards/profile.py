@@ -50,12 +50,15 @@ async def handle_profile(msg:Message,db_session:AsyncSession):
     except Exception as e:
         logger.error(f"error while reacting to message: {e}")
     res=await get_profile_card(db_session,tele_id)
-    if not res:
+    if not res or not getattr(res, "card", None):
         kb=make_report_keboard(tele_id,uid.game_id,r_type='PFP')
         await msg.reply("failed to generate profile card , press report to report the issue to the bot admins ",reply_markup=kb)
         return
     kb=make_profile_keyboard(tele_id,chars=res.data)
     sent = await _send_profile_with_cache_fallback(msg, db_session, tele_id, res, kb)
+    if not sent:
+        await msg.reply("failed to generate profile card , press report to report the issue to the bot admins ",reply_markup=make_report_keboard(tele_id,uid.game_id,r_type='PFP'))
+        return
     if isinstance(sent, tuple):
         file, res = sent
     else:
@@ -77,6 +80,11 @@ async def handle_ccard(cb:CallbackQuery,db_session:AsyncSession):
     slot=int(data[-1])
 
     res=await get_character_card(db_session,tele_id,slot)
+    if not res or not getattr(res, "card", None):
+        uid=await GameIDs_repo(db_session).get_active_UID(tele_id)
+        kb=make_report_keboard(tele_id,uid.game_id,r_type='CHAR',slot=slot)
+        await cb.message.edit_text("failed to generate character card , press report to report the issue to the bot admins ",reply_markup=kb)
+        return
     kb=make_back_kb(tele_id)
     try:
         if res.cached and res.card:
@@ -116,7 +124,7 @@ async def handle_back(cb:CallbackQuery,db_session:AsyncSession):
         return
     uid=await GameIDs_repo(db_session).get_active_UID(tele_id)
     res=await get_profile_card(db_session,tele_id)
-    if not res:
+    if not res or not getattr(res, "card", None):
         kb=make_report_keboard(tele_id,uid.game_id,r_type='PFP')
         await cb.message.edit_text("failed to generate profile card , press report to report the issue to the bot admins ",reply_markup=kb)
         return

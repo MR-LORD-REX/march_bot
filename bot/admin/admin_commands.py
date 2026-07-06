@@ -485,3 +485,28 @@ async def set_authority(query: CallbackQuery, db_session: AsyncSession):
         f"Authority updated to {new_authority} for user with telegram id {target.telegram_id}",
         show_alert=True
     )
+    
+    
+# =============================== Report Callback =================================
+
+@rt.callback_query(F.data.startswith("report:"))
+async def handle_report(cb:CallbackQuery,db_session:AsyncSession):
+    # send dm to owner with the report details
+    data=cb.data.split(":")
+    r_type=data[1]
+    tele_id=int(data[2])
+    uid=int(data[3])
+    user=await UserRepo(db_session).get_by_tele_id(tele_id)
+    if not user:
+        await cb.answer("user not found",show_alert=True)
+        return
+    report_text=f"Report received for {r_type} card generation\n\n"
+    report_text+=f"User details:\n"
+    report_text+=f"Telegram ID: {user.telegram_id}\n"
+    report_text+=f"Username: @{user.username}\n"
+    report_text+=f"Display Name: {user.display_name}\n"
+    report_text+=f"Game ID: {uid}\n"
+    report_text+=f"Report Type: {r_type}\n"
+    from bot.core.main import bot
+    await bot.send_message(OWNER_TELE_ID,report_text)
+    await cb.answer("report sent to bot admins",show_alert=True)
