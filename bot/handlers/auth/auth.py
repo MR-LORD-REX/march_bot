@@ -11,6 +11,8 @@ from bot.services.UG_cache import load_users , load_groups
 from bot.DB.repo.game_ids_repo import GameIDs_repo
 from bot.handlers.auth.kb import make_switch_kb
 
+from bot.utils.gifs import get_gif
+
 rt=Router()
 logger=logging.getLogger(__name__)
 
@@ -18,14 +20,22 @@ logger=logging.getLogger(__name__)
 async def handle_login(msg:Message,db_session:AsyncSession):
     args = msg.text.split(maxsplit=1)
     if len(args) < 2 or not args[1].isdigit():
-        await msg.reply("Please provide a valid UID. Usage: /login UID_NUMBER")
+        await msg.reply_animation(
+            get_gif("error_1"),
+            caption="Please provide a valid UID. Usage: /login UID_NUMBER",
+        )
         return
     uid = int(args[1])
     tele_id=msg.from_user.id
     res=await login(db_session,tele_id,msg,uid)
     kb=InlineKeyboardBuilder()
     kb.button(text="Join our channel",url=CHANNEL_LINK)
-    await msg.reply(f"{res.msg}", reply_markup=kb.as_markup(), parse_mode=None)
+    await msg.reply_animation(
+        get_gif("noted" if res.success else "error_1"),
+        caption=res.msg,
+        reply_markup=kb.as_markup(),
+        parse_mode=None,
+    )
     if res.success:
         await db_session.commit()
     from bot.config.config import users_record
@@ -54,11 +64,14 @@ async def handle_logout(msg:Message,db_session:AsyncSession):
     user=await check_user(db_session,tele_id)
     all_uids=await GameIDs_repo(db_session).get_UIDs(tele_id)
     if not user or not all_uids:
-        await msg.reply("Please login using /login UID_NUMBER")
+        await msg.reply_animation(
+            get_gif("error_1"),
+            caption="Please login using /login UID_NUMBER",
+        )
         return
         
     res=await logout(db_session,tele_id)
-    await msg.reply(res.msg)
+    await msg.reply_animation(get_gif("error_1"), caption=res.msg)
     await db_session.commit()
     
     if res.success:
@@ -80,7 +93,10 @@ async def handle_token_login(msg:Message,db_session:AsyncSession):
     token=token.split("//")
     token={"ltoken_v2":token[0],"ltuid_v2":token[1]}
     res=await token_login(db_session,msg.from_user.id,token)
-    await msg.reply(text=res.msg)
+    await msg.reply_animation(
+        get_gif("noted" if res.success else "error_1"),
+        caption=res.msg,
+    )
     if res.success:
         await db_session.commit()
         await msg.delete()
@@ -90,15 +106,18 @@ async def handle_token_login(msg:Message,db_session:AsyncSession):
     await load_users(db_session,users_record)
         
 @rt.message(Command("token_logout"))
-async def handle_logout(msg:Message,db_session:AsyncSession):
+async def handle_token_logout(msg:Message,db_session:AsyncSession):
     tele_id=msg.from_user.id
     user=await check_user(db_session,tele_id)
     all_uids=await GameIDs_repo(db_session).get_UIDs(tele_id)
     if not user or not all_uids:
-        await msg.reply("Please login using /login UID_NUMBER")
+        await msg.reply_animation(
+            get_gif("error_1"),
+            caption="Please login using /login UID_NUMBER",
+        )
         return
     res=await token_logout(db_session,tele_id)
-    await msg.reply(res.msg)
+    await msg.reply_animation(get_gif("error_1"), caption=res.msg)
     if res.success:
         await db_session.commit()
         

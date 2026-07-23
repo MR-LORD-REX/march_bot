@@ -1,4 +1,4 @@
-from sqlalchemy import select 
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Sequence
@@ -80,7 +80,27 @@ class UserRepo(BaseRepo):
         user.banned=False
         await self.update(user)
         return True
+
+    async def is_banned(self, tele_id: int) -> bool:
+        user = await self.get_by_tele_id(tele_id)
+        return bool(user and user.banned)
     
+    async def count_users(self) -> int:
+        query = select(func.count()).select_from(self.model)
+        result = await self.session.execute(query)
+        return result.scalar_one()
+
+    async def get_page(self, page: int, per_page: int = 5) -> Sequence[Users]:
+        query = (
+            select(self.model)
+            .order_by(self.model.telegram_id)
+            .offset(page * per_page)
+            .limit(per_page)
+            .options(selectinload(Users.game_ids))
+        )
+        result = await self.session.execute(query)
+        return result.scalars().all()
+
     async def get_groups(self, tele_id: int) -> Sequence[UsersInGroup]:
         query = select(self.model).where(self.model.telegram_id == tele_id).options(
             selectinload(Users.groups).selectinload(UsersInGroup.group)

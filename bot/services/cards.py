@@ -8,6 +8,7 @@ from pydantic import BaseModel , ConfigDict
 from PIL import Image
 import ast
 import random
+from honkai_cards import HSR
 
 from bot.DB.repo.game_ids_repo import GameIDs_repo
 from bot.DB.repo.user_setting_repo import UserSettingsRepo
@@ -54,12 +55,11 @@ async def get_profile_card(session:AsyncSession,tele_id:int)->ProfileRes|None:
             data=chars
         )
     try:
-        px=random.choice(proxies) if proxies else None
-        async with starrailcard.Card(asset_save=True,proxy=px) as cards:
-            card = await cards.create_profile(uid.game_id)
+        async with HSR() as hsr:
+            card = await hsr.profile(uid.game_id)
             chars=[]
-            for cn , cid in zip(card.character_name,card.character_id):
-                chars.append({"name":cn,"slot":cid})
+            for c in card.characters:
+                chars.append({"name":c.name,"slot":c.slot})
             return ProfileRes(
                 cached=False,
                 card=card.card,
@@ -75,7 +75,6 @@ async def get_character_card(session:AsyncSession,tele_id:int,slot:int)-> CharRe
     if not uid:
         return None   
     cached=await CacheRepo(session).get_cache(tele_id,cache_type='CHAR',slot=slot)
-    card=None
     if cached:
             return CharRes(
                 cached=True,
@@ -83,15 +82,9 @@ async def get_character_card(session:AsyncSession,tele_id:int,slot:int)-> CharRe
                 data=cached.data
             )
     try:
-        px=random.choice(proxies) if proxies else None
-        async with starrailcard.Card(character_id=str(slot), seeleland=True,proxy=px,asset_save=True) as cards:
-            card = await cards.create(uid.game_id,style=settings.character_template)
-            card_payload = None
-            if getattr(card, 'card', None) is not None:
-                if type(card.card) == Image.Image:
-                    card_payload = card.card
-                elif isinstance(card.card, list) and card.card:
-                    card_payload = card.card[0].card if getattr(card.card[0], 'card', None) is not None else None
+        benchmark=settings.benchmark
+        async with HSR() as hsr:
+            card_payload = await hsr.character(uid.game_id,slot,benchmark=benchmark)
             if not card_payload:
                 logger.warning(f"Character card generation returned no payload for slot {slot}")
                 return CharRes(cached=False, card=None, data=str(slot))

@@ -1,12 +1,19 @@
 from aiogram import Router, F
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    Message,
+    CallbackQuery,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    InputMediaPhoto,
+    InputMediaVideo,
+)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 import asyncio
 
-from bot.config.config import OWNER_TELE_ID , cmdavailability
+from bot.config.config import OWNER_TELE_ID , cmdavailability , ADMIN_GC_ID
 from bot.DB.repo.admin_repo import AdminRepo
 from bot.DB.repo.tele_group_repo import TeleGroupRepo
 from bot.DB.repo.user_repo import UserRepo
@@ -14,6 +21,8 @@ from bot.DB.repo.cmd_meta_repo import CommandMetaRepo
 
 rt = Router()
 logger = logging.getLogger(__name__)
+
+_album_cache: dict[str, list[Message]] = {}
 
 proxies=None
 
@@ -49,6 +58,118 @@ async def get_user_authority(db_session: AsyncSession, tele_id: int):
     return user.authority
 
 
+def _caption_kwargs(message: Message) -> dict:
+    if not message.caption:
+        return {}
+    kwargs = {"caption": message.caption}
+    if message.caption_entities:
+        kwargs["caption_entities"] = message.caption_entities
+    return kwargs
+
+
+def _resolve_album(source: Message) -> list[Message]:
+    if source.media_group_id:
+        album = _album_cache.get(source.media_group_id, [source])
+        return sorted(album, key=lambda m: m.message_id)
+    return [source]
+
+
+def _album_caption_source(messages: list[Message]) -> Message:
+    for msg in messages:
+        if msg.caption:
+            return msg
+    return messages[0]
+
+
+def _build_photo_album(messages: list[Message]) -> list[InputMediaPhoto]:
+    photos = [msg for msg in messages if msg.photo]
+    caption_src = _album_caption_source(photos)
+    media = []
+    for i, msg in enumerate(photos):
+        kwargs = {"media": msg.photo[-1].file_id}
+        if i == 0:
+            kwargs.update(_caption_kwargs(caption_src))
+        media.append(InputMediaPhoto(**kwargs))
+    return media
+
+
+def _build_video_album(messages: list[Message]) -> list[InputMediaVideo]:
+    videos = [msg for msg in messages if msg.video]
+    caption_src = _album_caption_source(videos)
+    media = []
+    for i, msg in enumerate(videos):
+        kwargs = {"media": msg.video.file_id}
+        if i == 0:
+            kwargs.update(_caption_kwargs(caption_src))
+        media.append(InputMediaVideo(**kwargs))
+    return media
+
+
+async def _broadcast_media(message: Message, db_session: AsyncSession, media_type: str):
+    tele_id = message.from_user.id
+    user_authority = await get_user_authority(db_session, tele_id)
+
+    if user_authority not in ["owner", "admin"]:
+        logger.warning(f"Unauthorized broadcast_{media_type} attempt: user {tele_id}")
+        return
+
+    source = message.reply_to_message if message.reply_to_message else message
+    has_media = source.photo if media_type == "photo" else source.video
+    if not has_media:
+        label = "photo" if media_type == "photo" else "video"
+        await message.reply(f"Please reply to a {label} (or album) to broadcast")
+        return
+
+    from bot.core.main import bot
+
+    groups = await TeleGroupRepo(db_session).get_all()
+    album = _resolve_album(source)
+
+    for group in groups:
+        try:
+            if media_type == "photo":
+                if len(album) == 1:
+                    msg = album[0]
+                    await bot.send_photo(
+                        group.group_id,
+                        photo=msg.photo[-1].file_id,
+                        **_caption_kwargs(msg),
+                    )
+                else:
+                    await bot.send_media_group(
+                        group.group_id,
+                        media=_build_photo_album(album),
+                    )
+            elif len(album) == 1:
+                msg = album[0]
+                await bot.send_video(
+                    group.group_id,
+                    video=msg.video.file_id,
+                    **_caption_kwargs(msg),
+                )
+            else:
+                await bot.send_media_group(
+                    group.group_id,
+                    media=_build_video_album(album),
+                )
+        except Exception as e:
+            logger.error(f"Broadcast {media_type} error in {group.group_id}: {e}")
+            await asyncio.sleep(5)
+
+    unit = "photo" if len(album) == 1 else f"{len(album)} photos"
+    if media_type == "video":
+        unit = "video" if len(album) == 1 else f"{len(album)} videos"
+    await message.reply(f"Broadcast sent successfully ({unit})")
+
+
+@rt.message(F.media_group_id)
+async def cache_media_group(message: Message):
+    key = message.media_group_id
+    if key not in _album_cache:
+        _album_cache[key] = []
+    _album_cache[key].append(message)
+
+
 # ================================= OWNER ONLY COMMANDS =================================
 
 @rt.message(Command("update_assets"))
@@ -62,24 +183,12 @@ async def update_assets(message: Message, db_session: AsyncSession):
         logger.warning(f"Unauthorized update_assets attempt: user {tele_id}")
         return
     try:
-        if proxies:
-            for px in proxies:
-                try:
-                    import starrailcard
-                    async with starrailcard.Card(asset_save=True,proxy=px) as src:
-                        await src.create(800556377,force_update=True)
-                    await message.reply(f"Assets updated successfully with proxy {px}")
-                    return
-                except Exception as e:
-                    logger.error(f"Error updating assets with proxy {px}: {e}")
-                    continue
-            await message.reply("Assets update completed with proxies.")
-        else:
-            import starrailcard
-            async with starrailcard.Card(character_id="1212",asset_save=True) as src:
-                await src.create(800556377,force_update=True)
-            await message.reply("Assets updated successfully without proxy.")
+        import enka
+        async with enka.HSRClient() as hsr:
+            await hsr.update_assets()
+            await message.reply("Assets update completed successfully.")
     except Exception as e:
+        logger.error(f"Error updating assets: {e}")
         await message.reply(f"Error updating assets: {e}")
     
 @rt.message(Command("add_admin"))
@@ -265,33 +374,92 @@ async def broadcast(message: Message, db_session: AsyncSession):
 
 @rt.message(Command("broadcast_photo"))
 async def broadcast_photo(message: Message, db_session: AsyncSession):
-    tele_id = message.from_user.id
-    logger.info(f"broadcast_photo command called by user {tele_id}")
+    logger.info(f"broadcast_photo command called by user {message.from_user.id}")
+    await _broadcast_media(message, db_session, "photo")
 
-    user_authority = await get_user_authority(db_session, tele_id)
 
-    if user_authority not in ["owner", "admin"]:
-        logger.warning(f"Unauthorized broadcast_photo attempt: user {tele_id}")
-        return
+@rt.message(Command("broadcast_vid"))
+async def broadcast_vid(message: Message, db_session: AsyncSession):
+    logger.info(f"broadcast_vid command called by user {message.from_user.id}")
+    await _broadcast_media(message, db_session, "video")
 
-    to_send = message.reply_to_message.photo if message.reply_to_message else message.photo
-    if not to_send:
-        await message.reply("Please reply to the photo to broadcast")
-        return
 
-    from bot.core.main import bot
+USERS_PER_PAGE = 5
 
-    groups = await TeleGroupRepo(db_session).get_all()
 
-    for group in groups:
-        try:
-            await bot.send_photo(group.group_id, to_send[-1].file_id)
-        except Exception as e:
-            logger.error(f"Broadcast photo error in {group.group_id}: {e}")
-            await asyncio.sleep(5)
+def _build_users_page_text(
+    users,
+    page: int,
+    total_pages: int,
+    total_count: int,
+    admin_map: dict[int, str],
+) -> str:
+    start_idx = page * USERS_PER_PAGE
+    lines = [
+        "👥 <b>Users Database</b>",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        f"📄 Page <b>{page + 1}</b> of <b>{total_pages}</b>  ·  {total_count} total",
+        "",
+    ]
 
-    await message.reply("Broadcast sent successfully")
-    
+    for i, user in enumerate(users, start=start_idx + 1):
+        status = "🚫 Banned" if user.banned else "✅ Active"
+        warn_line = f"⚠️ {user.warns} warn{'s' if user.warns != 1 else ''}" if user.warns else "✅ 0 warns"
+        username = f"@{user.username}" if user.username else "—"
+        name = user.display_name or "—"
+        uid_count = len(user.game_ids)
+        admin_badge = f"  ·  🛡 {admin_map[user.telegram_id]}" if user.telegram_id in admin_map else ""
+
+        lines.extend([
+            f"━━ <b>#{i}</b> ━━",
+            f"{status}{admin_badge}  ·  {warn_line}",
+            f"👤 <b>{name}</b>  ·  {username}",
+            f"🆔 <code>{user.telegram_id}</code>  ·  🎮 {uid_count} UID{'s' if uid_count != 1 else ''}",
+            "",
+        ])
+
+    return "\n".join(lines).rstrip()
+
+
+def _build_users_page_kb(page: int, total_pages: int) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    nav_buttons = []
+
+    if page > 0:
+        nav_buttons.append(
+            InlineKeyboardButton(text="◀ Prev", callback_data=f"users_page:{page - 1}")
+        )
+    nav_buttons.append(
+        InlineKeyboardButton(text=f"{page + 1} / {total_pages}", callback_data="users_page:noop")
+    )
+    if page < total_pages - 1:
+        nav_buttons.append(
+            InlineKeyboardButton(text="Next ▶", callback_data=f"users_page:{page + 1}")
+        )
+
+    if nav_buttons:
+        kb.row(*nav_buttons)
+    return kb.as_markup()
+
+
+async def _render_users_page(page: int, db_session: AsyncSession):
+    repo = UserRepo(db_session)
+    total_count = await repo.count_users()
+    if total_count == 0:
+        return None, None
+
+    total_pages = max(1, (total_count + USERS_PER_PAGE - 1) // USERS_PER_PAGE)
+    page = max(0, min(page, total_pages - 1))
+
+    users = await repo.get_page(page, USERS_PER_PAGE)
+    admins = await AdminRepo(db_session).get_all_admins()
+    admin_map = {admin.telegram_id: admin.authority for admin in admins}
+
+    text = _build_users_page_text(users, page, total_pages, total_count, admin_map)
+    kb = _build_users_page_kb(page, total_pages)
+    return text, kb
+
+
 @rt.message(Command("users"))
 async def list_users(message: Message, db_session: AsyncSession):
     tele_id = message.from_user.id
@@ -303,31 +471,64 @@ async def list_users(message: Message, db_session: AsyncSession):
         logger.warning(f"Unauthorized users attempt: user {tele_id}")
         return
 
-    users = await UserRepo(db_session).get_all()
-    if not users:
+    text, kb = await _render_users_page(0, db_session)
+    if not text:
         await message.reply("No users found in the database.")
         return
-    
-    text = "👥 <b>Users in Database</b>\n"
-    text += "=" * 50 + "\n\n"
-    
-    for idx, user in enumerate(users, 1):
-        status_icon = "🚫" if user.banned else "✓"
-        status_text = "Banned" if user.banned else "Active"
-        username = user.username if user.username else "—"
-        display_name = user.display_name if user.display_name else "—"
-        
-        text += f"<b>#{idx}</b>\n"
-        text += f"  ID: <code>{user.telegram_id}</code>\n"
-        text += f"  Username: <code>@{username}</code>\n"
-        text += f"  Name: {display_name}\n"
-        text += f"  Status: {status_icon} {status_text}\n"
-        text += "─" * 50 + "\n"
-    
-    await message.reply(text, parse_mode="HTML")
+
+    await message.reply(text, parse_mode="HTML", reply_markup=kb)
+
+
+@rt.callback_query(F.data.startswith("users_page:"))
+async def users_page_callback(query: CallbackQuery, db_session: AsyncSession):
+    tele_id = query.from_user.id
+    user_authority = await get_user_authority(db_session, tele_id)
+
+    if user_authority not in ["owner", "admin"]:
+        await query.answer("Unauthorized.", show_alert=True)
+        return
+
+    page_token = query.data.split(":")[1]
+    if page_token == "noop":
+        await query.answer()
+        return
+
+    page = int(page_token)
+    text, kb = await _render_users_page(page, db_session)
+    if not text:
+        await query.answer("No users found.", show_alert=True)
+        return
+
+    await query.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+    await query.answer()
 
 
 # ================================= MODERATOR + ADMIN + OWNER =================================
+
+@rt.message(Command("disable_command"))
+async def disable_command(message: Message, db_session: AsyncSession):
+    tele_id = message.from_user.id
+    logger.info(f"disable_command command called by user {tele_id}")
+    user_authority = await get_user_authority(db_session, tele_id)
+    if user_authority != "owner":
+        logger.warning(f"Unauthorized disable_command attempt: user {tele_id}")
+        return
+    command = message.text.split(" ")[1].replace("/","")
+    reason = message.text.split(" ")[2:]
+    reason = " ".join(reason)
+    if not command or not reason:
+        await message.reply("Please provide a command and a reason")
+        return
+    await CommandMetaRepo(db_session).disable_command(command, reason)
+    await db_session.commit()
+    await message.reply("Command disabled successfully")
+    from bot.core.main import bot
+    await bot.send_message(
+        ADMIN_GC_ID,
+        f"Command /{command} has been disabled by @{message.from_user.username if message.from_user.username else message.from_user.display_name} with the reason: {reason}"
+    )
+    new = await CommandMetaRepo(db_session).get_all_commands()
+    cmdavailability.load(new)
 
 @rt.message(Command("ban_user"))
 async def ban_user(message: Message, db_session: AsyncSession):
@@ -447,6 +648,7 @@ async def admin_help(message: Message, db_session: AsyncSession):
 /update_admin - owner only
 /broadcast - admin + owner
 /broadcast_photo - admin + owner
+/broadcast_vid - admin + owner
 /ban_user - moderator + admin + owner
 /unban_user - moderator + admin + owner
 /send <message>
@@ -508,5 +710,52 @@ async def handle_report(cb:CallbackQuery,db_session:AsyncSession):
     report_text+=f"Game ID: {uid}\n"
     report_text+=f"Report Type: {r_type}\n"
     from bot.core.main import bot
-    await bot.send_message(OWNER_TELE_ID,report_text)
+    await bot.send_message(ADMIN_GC_ID,report_text)
     await cb.answer("report sent to bot admins",show_alert=True)
+
+@rt.callback_query(F.data.startswith("ban_user:"))
+async def handle_ban_user(cb:CallbackQuery,db_session:AsyncSession):
+    data=cb.data.split(":")
+    tapped_by=cb.from_user.id
+    authority=await get_user_authority(db_session,tapped_by)
+    if authority not in ["owner", "admin", "moderator"]:
+        await cb.answer("you are not authorized to ban users",show_alert=True)
+        return
+    tele_id=int(data[1])
+    await UserRepo(db_session).ban_user(tele_id)
+    await db_session.commit()
+    await cb.answer("user banned successfully",show_alert=True)
+    from bot.core.main import bot
+    user=await UserRepo(db_session).get_by_tele_id(tele_id)
+    if not user:
+        await cb.answer("user not found",show_alert=True)
+        return
+    await bot.send_message(
+        ADMIN_GC_ID,
+        f"User @{user.username if user.username else user.display_name} has been banned by @{cb.from_user.username if cb.from_user.username else cb.from_user.display_name}",
+        reply_markup=InlineKeyboardBuilder().button(text="Unban User", callback_data=f"unban_user:{tele_id}").as_markup()
+    )
+    await bot.send_message(tele_id,f"You have been banned from the bot by @{cb.from_user.username if cb.from_user.username else cb.from_user.display_name}. Please contact the bot admins for more information.")
+
+
+@rt.callback_query(F.data.startswith("unban_user:"))
+async def handle_unban_user(cb:CallbackQuery,db_session:AsyncSession):
+    data=cb.data.split(":")
+    tapped_by=cb.from_user.id
+    authority=await get_user_authority(db_session,tapped_by)
+    if authority not in ["owner", "admin", "moderator"]:
+        await cb.answer("you are not authorized to unban users",show_alert=True)
+        return
+    tele_id=int(data[1])
+    await UserRepo(db_session).unban_user(tele_id)
+    await db_session.commit()
+    await cb.answer("user unbanned successfully",show_alert=True)
+    from bot.core.main import bot
+    user=await UserRepo(db_session).get_by_tele_id(tele_id)
+    if not user:
+        await cb.answer("user not found",show_alert=True)
+        return
+    await bot.send_message(ADMIN_GC_ID,f"User @{user.username if user.username else user.display_name} has been unbanned by @{cb.from_user.username if cb.from_user.username else cb.from_user.display_name}")
+    await bot.send_message(tele_id,f"You have been unbanned from the bot by @{cb.from_user.username if cb.from_user.username else cb.from_user.display_name}. You can now use the bot again.")
+    await cb.message.edit_text("User unbanned successfully",reply_markup=None)
+    await cb.answer()

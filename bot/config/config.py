@@ -50,6 +50,7 @@ WEBHOOK_PATH=os.getenv("WEBHOOK_PATH","/webhook")
 WEBHOOK_SECRET=os.getenv("WEBHOOK_SECRET","Nous")
 
 OWNER_TELE_ID=int(os.getenv("OWNER_TELE_ID","5103772471"))
+ADMIN_GC_ID=int(os.getenv("ADMIN_GC_ID","-1003477499464"))
 CHANNEL_LINK="https://t.me/Neuvillette_help"
 
 PORT=os.getenv("PORT",8000)

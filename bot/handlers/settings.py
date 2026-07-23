@@ -11,6 +11,7 @@ from pathlib import Path
 from bot.DB.repo.user_setting_repo import UserSettingsRepo
 from bot.DB.repo.user_repo import UserRepo
 from bot.DB.repo.game_ids_repo import GameIDs_repo
+from bot.config.config import ADMIN_GC_ID
 
 rt = Router()
 logger = logging.getLogger(__name__)
@@ -120,11 +121,8 @@ async def handle_tpl_list(cb: CallbackQuery):
     
     if tpl_type == "profile":
         builder.button(text="1", callback_data="tpl_prev:profile:1")
-        builder.button(text="2", callback_data="tpl_prev:profile:2")
     else:
         builder.button(text="1", callback_data="tpl_prev:character:1")
-        builder.button(text="2", callback_data="tpl_prev:character:2")
-        builder.button(text="3", callback_data="tpl_prev:character:3")
         
     builder.button(text="🔙 Back", callback_data="settings_main")
     builder.adjust(2 if tpl_type == "profile" else 3, 1)
@@ -220,3 +218,29 @@ async def toggle_daily_reminder(callback: CallbackQuery, db_session: AsyncSessio
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
     state_word = "turned ON 🟢" if updated.dalies_reminder else "turned OFF 🔴"
     await callback.answer(f"Daily Reminder {state_word}")
+
+@rt.message(Command("suggestions"))
+async def handle_suggestions(msg: Message, db_session: AsyncSession):
+    if not msg.chat.type == "private":
+        await msg.reply("Please send your suggestions in a private chat with the bot. 🌸")
+        return
+    tele_id = msg.from_user.id
+    user = await UserRepo(db_session).get_by_tele_id(tele_id)
+    if not user:
+        await msg.reply("Hey Trailblazer! You need to log in first. Try /login 🌸")
+        return
+    suggestion=msg.text.replace("/suggestions ","")
+    
+    if len(suggestion) > 1000:
+        await msg.reply("Suggestion is too long. Please send a shorter suggestion. 🌸")
+        return
+    if not suggestion:
+        await msg.reply("Usage: /suggestions <suggestion>")
+        return
+    text=f"Suggestion from {user.username} - {user.display_name}\n\n{suggestion}"
+    kb=InlineKeyboardBuilder()
+    kb.button(text="Ban User", callback_data=f"ban_user:{tele_id}")
+    from bot.core.main import bot
+    await bot.send_message(ADMIN_GC_ID,text,reply_markup=kb.as_markup())
+    await msg.reply("Suggestion sent to bot admins. Thank you for your feedback! 🌸")
+    await db_session.commit()

@@ -11,3 +11,4 @@ class CommandsMeta(base):
     id:Mapped[int]=mapped_column(Integer,primary_key=True,autoincrement=True)
     cmd:Mapped[str]=mapped_column(String,unique=True)
     active:Mapped[bool]=mapped_column(Boolean,nullable=False,default=True)
+    reason:Mapped[str]=mapped_column(String,nullable=True,default="")

@@ -14,8 +14,8 @@ from bot.core.webhook import setup_webhook , setup_polling
 
 dp=Dispatcher()
 dp.message.middleware(RateLimitMiddleware())
-dp.message.middleware(CommandChecker(cmdavailability))
 dp.message.middleware(DBMiddleware())
+dp.message.middleware(CommandChecker(cmdavailability))
 dp.callback_query.middleware(DBMiddleware())
 dp.startup.register(on_startup)
 dp.shutdown.register(on_shutdown)

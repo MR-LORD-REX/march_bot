@@ -15,5 +15,6 @@ class UserSettings(base):
     dalies_reminder: Mapped[bool] = mapped_column(Boolean, default=False)
     weekly_reminder: Mapped[bool] = mapped_column(Boolean, default=False)
     perform_daily: Mapped[bool] = mapped_column(Boolean, default=False)
+    benchmark: Mapped[bool] = mapped_column(Boolean, default=True)
     
     user: Mapped["Users"] = relationship("Users", back_populates="settings")

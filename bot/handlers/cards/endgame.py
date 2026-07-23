@@ -1,7 +1,6 @@
 # pyrefly: ignore [missing-import]
 from aiogram import Router
-from aiogram.types import ReactionTypeEmoji
-from aiogram.types import Message , CallbackQuery , InputMediaPhoto
+from aiogram.types import Message , CallbackQuery , InputMediaPhoto, InputMediaAnimation
 from aiogram.filters import Command
 from aiogram.exceptions import TelegramBadRequest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +11,7 @@ from PIL import Image
 from bot.services.auth import check_user
 from bot.services.cards import get_endgame_card , EndRes
 from bot.utils.images import image_to_tgFile
+from bot.utils.gifs import get_gif
 from bot.handlers.cards.kb import make_report_keboard , make_endgame_keyboard
 
 from bot.DB.repo.game_ids_repo import GameIDs_repo
@@ -20,6 +20,27 @@ from bot.DB.repo.cache_repo import CacheRepo
 logger=logging.getLogger(__name__)
 
 rt=Router()
+
+_CARD_ERROR = "failed to generate card , press report to report the issue to the bot admins "
+
+
+async def _delete_message(msg: Message) -> None:
+    try:
+        await msg.delete()
+    except Exception:
+        pass
+
+
+async def _reply_card_error(msg: Message, kb) -> None:
+    await msg.reply_animation(get_gif("error_3"), caption=_CARD_ERROR, reply_markup=kb)
+
+
+async def _edit_card_error(msg: Message, kb) -> None:
+    await msg.edit_media(
+        media=InputMediaAnimation(media=get_gif("error_3"), caption=_CARD_ERROR),
+        reply_markup=kb,
+    )
+
 
 async def _send_endgame_card(
     msg: Message,
@@ -71,7 +92,9 @@ async def _edit_endgame_card(
         await CacheRepo(db_session).delete_all_cache(tele_id)
         fresh = await get_endgame_card(db_session, tele_id, c_type, sched)
         if not fresh:
-            await cb.answer("failed to regenerate card", show_alert=True)
+            uid = await GameIDs_repo(db_session).get_active_UID(tele_id)
+            kb = make_report_keboard(tele_id, uid.game_id, r_type=c_type)
+            await _edit_card_error(cb.message, kb)
             return None, None
         fresh_photo = await image_to_tgFile(fresh.card)
         file = await cb.message.edit_media(
@@ -92,18 +115,13 @@ async def _handle_endgame_command(
     if not user or not uid:
         await msg.reply("please login using /login or /switch ")
         return
-    try:
-        await msg.react([ReactionTypeEmoji(emoji="👍")])
-    except Exception as e:
-        logger.error(f"error while reacting to message: {e}")
 
+    loading_msg = await msg.reply_animation(get_gif("loading"))
     res = await get_endgame_card(db_session, tele_id, c_type, sched)
+    await _delete_message(loading_msg)
     if not res or not getattr(res, "card", None):
         kb = make_report_keboard(tele_id, uid.game_id, r_type=c_type)
-        await msg.reply(
-            "failed to generate card , press report to report the issue to the bot admins ",
-            reply_markup=kb
-        )
+        await _reply_card_error(msg, kb)
         return
 
     # ANO has no schedule selector
@@ -156,11 +174,13 @@ async def handle_endgame_switch(cb: CallbackQuery, db_session: AsyncSession):
         await cb.answer("not for you", show_alert=True)
         return
 
-    await cb.answer()  # dismiss loading spinner
+    await cb.message.edit_media(media=InputMediaAnimation(media=get_gif("loading")))
 
     res = await get_endgame_card(db_session, tele_id, c_type, sched)
-    if not res:
-        await cb.answer("failed to fetch card", show_alert=True)
+    if not res or not getattr(res, "card", None):
+        uid = await GameIDs_repo(db_session).get_active_UID(tele_id)
+        kb = make_report_keboard(tele_id, uid.game_id, r_type=c_type)
+        await _edit_card_error(cb.message, kb)
         return
 
     kb = make_endgame_keyboard(tele_id, c_type, active=sched)

@@ -59,5 +59,19 @@ class CommandMetaRepo(BaseRepo):
     async def get_all_commands(self) -> dict[str, bool]:
         all_cmds = await self.get_all()
         return {cmd.cmd: cmd.active for cmd in all_cmds} 
+
+    async def get_command_meta(self, cmd: str) -> CommandsMeta:
+        query = select(self.model).where(self.model.cmd == cmd)
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
+    async def disable_command(self,cmd:str,res:str)-> bool:
+        query = select(self.model).where(self.model.cmd == cmd)
+        result = await self.session.execute(query)
+        result=result.scalar_one_or_none()
+        result.active=False
+        result.reason=res
+        await self.update(result)
+        return True
     
     

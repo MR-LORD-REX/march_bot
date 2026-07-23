@@ -13,6 +13,8 @@ redis
 enka
 
 hsr-cards>=1.0.8
+honkai-cards>=1.0.0
+
 git+https://github.com/Akane7101/StarRailCard.git
 aiohttp>=3.9.0,<3.14
 pydantic>=2.4.1,<2.13
