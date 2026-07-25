@@ -1,14 +1,15 @@
 from typing import List,Dict,Any,Union , Literal
-import starrailcard
 from hsr_cards import HonkaiStarrail
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
+import requests
+import json
 from pydantic import BaseModel , ConfigDict
 from PIL import Image
 import ast
 import random
-from honkai_cards import HSR
+from honkai_cards import HSR , Teammate
 
 from bot.DB.repo.game_ids_repo import GameIDs_repo
 from bot.DB.repo.user_setting_repo import UserSettingsRepo
@@ -16,6 +17,9 @@ from bot.DB.repo.cache_repo import CacheRepo
 from bot.config.config import proxies
 
 logger=logging.getLogger(__name__)
+
+char_link="https://raw.githubusercontent.com/fribbels/hsr-optimizer/main/public/assets/icon/avatar/{id}.webp"
+Lc_link="https://raw.githubusercontent.com/fribbels/hsr-optimizer/main/public/assets/icon/light_cone/{id}.webp"
 
 class ProfileRes(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -39,6 +43,7 @@ class EndRes(BaseModel):
     cached: bool
     card: str | Image.Image | None
     data: str | None
+    
     
 async def get_profile_card(session:AsyncSession,tele_id:int)->ProfileRes|None:
     uid=await GameIDs_repo(session).get_active_UID(tele_id)
@@ -96,6 +101,29 @@ async def get_character_card(session:AsyncSession,tele_id:int,slot:int)-> CharRe
     except Exception as e:
         logging.error(f"error while generating profile card : {e}")
         return CharRes(cached=False, card=None, data=str(slot))
+
+async def get_custom_card(
+    session:AsyncSession,
+    tele_id:int,
+    slot:int,
+    temmates:List[Teammate]
+    )->CharRes|None:
+    uid=await GameIDs_repo(session).get_active_UID(tele_id)
+    if not uid:
+        return None
+    try:
+        async with HSR() as hsr:
+            card=await hsr.custom_team(uid.game_id,temmates,slot)
+            return CharRes(
+                cached=False,
+                card=card,
+                data=str(slot)
+            )
+    except Exception as e:
+        logger.error(f"error while generating custom card : {e}")
+        return None
+
+
     
 async def get_endgame_card(
     session:AsyncSession,

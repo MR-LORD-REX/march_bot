@@ -1,7 +1,8 @@
 from typing import Literal , List , Dict
 
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import InlineKeyboardButton 
+from aiogram.types import ( InlineKeyboardButton , InlineQuery , WebAppInfo)
+
 
 def make_report_keboard(tele_id:int , uid:int , r_type:Literal['PFP','CHAR',"other"]|str='PFP'):
     kb=InlineKeyboardBuilder()
@@ -24,9 +25,23 @@ def make_profile_keyboard(tele_id:int,chars:List[Dict[str,int]]):
         kb.row(*row)
     return kb.as_markup()
 
-def make_back_kb(tele_id:int):
-    kb=InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="back",callback_data=f"back_P:{tele_id}"))
+def make_back_kb(tele_id:int, slot:int, uid:int, bot_username:str = None,
+                 chat_id:int = None, message_id:int = None):
+    kb = InlineKeyboardBuilder()
+    kb.row(InlineKeyboardButton(text="back", callback_data=f"back_P:{tele_id}"))
+    
+
+    if bot_username:
+        # startapp format: uid_slot_chatId_messageId_botUsername
+        # The webapp reads these to POST back to the correct message.
+        # We use underscore (_) as delimiter because chat_id can be negative (contains dash)
+        startapp = f"{uid}_{slot}_{chat_id}_{message_id}_{bot_username}"
+        direct_link = f"https://t.me/{bot_username}/team?startapp={startapp}"
+        kb.row(InlineKeyboardButton(text="custom team", url=direct_link))
+    else:
+        url = f"https://mr-lord-rex.github.io/hsr-bot-webapp/?uid={uid}&slot={slot}"
+        kb.row(InlineKeyboardButton(text="custom team", url=url))
+
     return kb.as_markup()
 
 def make_endgame_keyboard(tele_id:int, c_type:Literal['MOC','PF','AS'], active:Literal['1','2']='1'):

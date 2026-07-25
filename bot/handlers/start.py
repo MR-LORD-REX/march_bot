@@ -12,6 +12,12 @@ rt=Router()
 
 @rt.message(Command("start"))
 async def start(msg: Message, db_session: AsyncSession):
+    # Check for deep link payload, e.g., /start c_1_1306b1-23003...
+    args = msg.text.split(maxsplit=1)
+    if len(args) > 1 and args[1].startswith("c_"):
+        from bot.handlers.cards.profile import handle_webapp_deeplink
+        return await handle_webapp_deeplink(msg, args[1], db_session)
+
     kb = InlineKeyboardBuilder()
     kb.button(text="Join our channel", url=CHANNEL_LINK)
     text = (

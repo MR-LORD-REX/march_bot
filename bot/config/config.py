@@ -11,6 +11,7 @@ from bot.middleware.commands import CommandsAvailability
 from bot.services.UG_cache import UsersRecord, GroupsRecord
 from bot.utils.scheduler import Scheduler
 
+
 logger=None
 
 def setup_logging():
@@ -32,6 +33,22 @@ def check_envs():
     if missing_envs:
         logging.error(f'Missing environment variables: {", ".join(missing_envs)}')
         sys.exit(1)
+
+VAR_MODE = os.getenv("VAR_MODE", "SEP")
+if VAR_MODE == "JSON":
+    all_vars_json = os.getenv("ALL")
+    if not all_vars_json:
+        logging.error('VAR_MODE is JSON but "ALL" environment variable is missing or empty.')
+        sys.exit(1)
+    
+    try:
+        all_vars = json.loads(all_vars_json)
+        for k, v in all_vars.items():
+            os.environ[k] = str(v)
+    except json.JSONDecodeError as e:
+        logging.error(f'Failed to parse "ALL" environment variable as JSON: {e}')
+        sys.exit(1)
+
 check_envs()
 
 DB_URL = os.getenv('DB_URL')
@@ -64,6 +81,7 @@ cmdavailability: CommandsAvailability=CommandsAvailability()
 users_record:UsersRecord=UsersRecord()
 groups_record:GroupsRecord=GroupsRecord()
 scheduler=Scheduler()
+
 
 proxies = os.getenv("proxies","[]")
 proxies = json.loads(proxies) if proxies else []

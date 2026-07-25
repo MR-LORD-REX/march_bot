@@ -11,9 +11,10 @@ aiogram==3.24.0
 cryptography
 redis
 enka
+requests
 
 hsr-cards>=1.0.8
-honkai-cards>=1.0.0
+honkai-cards>=1.0.6
 
 git+https://github.com/Akane7101/StarRailCard.git
 aiohttp>=3.9.0,<3.14
