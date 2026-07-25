@@ -24,15 +24,6 @@ logger = logging.getLogger(__name__)
 
 _album_cache: dict[str, list[Message]] = {}
 
-proxies=None
-
-try:
-    with open("proxies.json", "r") as f:
-        import json
-        proxies = json.load(f)
-except Exception as e:
-    logger.warning(f"Could not load proxies.json: {e}")
-
 
 def setup_admin_kb() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()

@@ -175,11 +175,13 @@ def setup_webhook(bot: Bot, dp: Dispatcher):
                 drop_pending_updates=True
             )
             logger.info(f"Webhook set to {WEBHOOK_URL + WEBHOOK_PATH}")
+            await dp.emit_startup(bot=bot)
         except Exception as e:
             logger.error(f"Failed to set webhook: {e}", exc_info=True)
             raise
         yield
         await bot.delete_webhook(drop_pending_updates=True)
+        await dp.emit_shutdown(bot=bot)
         await bot.session.close()
         await engine.dispose()
         logger.info("Bot session and DB closed")

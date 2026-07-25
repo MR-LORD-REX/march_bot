@@ -29,8 +29,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/hsr-bot:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/hsr-bot:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/march7th:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/march7th:${{ github.sha }}
           cache-from: type=gha
           cache-to:   type=gha,mode=max
 
