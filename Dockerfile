@@ -17,7 +17,6 @@ RUN git clone --depth=1 https://github.com/DEViantUA/StarRailCardData.git /tmp/S
     rm -rf /tmp/StarRailCardData
 
 COPY bot ./bot
-COPY proxies.json .
 
 COPY main.py .
 
