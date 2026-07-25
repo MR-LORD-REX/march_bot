@@ -82,7 +82,3 @@ users_record:UsersRecord=UsersRecord()
 groups_record:GroupsRecord=GroupsRecord()
 scheduler=Scheduler()
 
-
-proxies = os.getenv("proxies","[]")
-proxies = json.loads(proxies) if proxies else []
-print(f"Loaded proxies: {proxies}")

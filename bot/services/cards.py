@@ -14,7 +14,6 @@ from honkai_cards import HSR , Teammate
 from bot.DB.repo.game_ids_repo import GameIDs_repo
 from bot.DB.repo.user_setting_repo import UserSettingsRepo
 from bot.DB.repo.cache_repo import CacheRepo
-from bot.config.config import proxies
 
 logger=logging.getLogger(__name__)
 
