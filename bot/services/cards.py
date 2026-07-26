@@ -14,6 +14,7 @@ from honkai_cards import HSR , Teammate
 from bot.DB.repo.game_ids_repo import GameIDs_repo
 from bot.DB.repo.user_setting_repo import UserSettingsRepo
 from bot.DB.repo.cache_repo import CacheRepo
+from bot.config.config import PROXY
 
 logger=logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ async def get_endgame_card(
             data=cached.data
         )
     try: 
-        async with HonkaiStarrail(uid=uid.game_id) as HSR:
+        async with HonkaiStarrail(uid=uid.game_id,proxy=PROXY) as HSR:
             if c_type=='ANO':
                 card=await HSR.anomaly()
             elif c_type=='AS':

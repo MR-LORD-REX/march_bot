@@ -75,6 +75,7 @@ PORT=os.getenv("PORT",8000)
 _render_url = os.getenv("RENDER_EXTERNAL_URL")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL") or (_render_url if _render_url else f"http://localhost:{PORT}")
 
+PROXY=os.getenv("proxy")
 
 cmdavailability: CommandsAvailability=CommandsAvailability()
 
