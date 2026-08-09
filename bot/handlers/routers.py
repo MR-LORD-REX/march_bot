@@ -10,9 +10,12 @@ from bot.handlers.groups import rt as groups
 from bot.handlers.live_cards import rt as live_cards
 from bot.admin.admin_commands import rt as admins
 from bot.handlers.settings import rt as settings
+from bot.handlers.inline_commands import rt as inline_commands
+from bot.handlers.chatbot import rt as chatbot
+from bot.handlers.group_settings import rt as group_settings
 
 
-#### WARNING - KEEP " groups " ROUTER LAST IN THE LIST TO AVOID CONFLICTS 
+#### WARNING - KEEP " groups " ROUTER LAST IN THE LIST TO AVOID CONFLICTS
 routers=[
     start,
     login,
@@ -21,6 +24,9 @@ routers=[
     admins,
     settings,
     endcards,
+    inline_commands,
+    group_settings,
+    chatbot,
     groups,
     ]
 logger=logging.getLogger(__name__)

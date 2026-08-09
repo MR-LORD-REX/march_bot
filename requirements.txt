@@ -12,6 +12,9 @@ cryptography
 redis
 enka
 requests
+qdrant_client
+google-genai
+tzdata
 
 hsr-cards>=1.0.9
 honkai-cards>=1.0.6

@@ -1,5 +1,5 @@
 from aiogram import Router, F
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject
 from aiogram.types import (
     Message,
     CallbackQuery,
@@ -265,6 +265,335 @@ async def update_admin(message: Message, db_session: AsyncSession):
         reply_markup=kb
     )
     
+@rt.message(Command("add_api"))
+async def add_api(message: Message, db_session: AsyncSession, command: CommandObject):
+    """/add_api <name> <key> -- private chat only; the message is deleted after."""
+    tele_id = message.from_user.id
+    user_authority = await get_user_authority(db_session, tele_id)
+
+    if user_authority != "owner":
+        logger.warning(f"Unauthorized add_api attempt: user {tele_id}")
+        return
+
+    if message.chat.type != "private":
+        # Never let a live credential sit in a group's history.
+        try:
+            await message.delete()
+        except Exception:
+            pass
+        await message.answer("Send /add_api in a private chat with me.")
+        return
+
+    parts = (command.args or "").split()
+    if len(parts) != 2:
+        await message.reply(
+            "Usage: /add_api <name> <api_key>\n"
+            "Example: /add_api main AIzaSy...\n\n"
+            "The name is a label you'll see in /list_api; the key is stored "
+            "encrypted and never shown again.",
+            parse_mode=None,
+        )
+        return
+
+    api_name, api_key = parts[0], parts[1]
+
+    from bot.services.lorebot.config import LORE_MODELS
+    from bot.DB.repo.ai_api_repo import AiApiRepo
+    from bot.services.lorebot.runtime import reload_pool, quota_manager
+
+    entry = await AiApiRepo(db_session).add_key(api_name, api_key, LORE_MODELS)
+    if not entry:
+        await message.reply(
+            f"A key named '{api_name}' already exists. Pick another name "
+            f"or remove it with /remove_api {api_name}.",
+            parse_mode=None,
+        )
+        return
+    await db_session.commit()
+
+    # Drop the plaintext key out of the chat now that it is stored.
+    try:
+        await message.delete()
+    except Exception as e:
+        logger.warning(f"could not delete /add_api message: {e}")
+
+    await reload_pool()
+    await message.answer(
+        f"✅ Key <b>{api_name}</b> added with {len(LORE_MODELS)} model buckets.\n"
+        f"Pool is now {len(quota_manager.slots)} buckets — "
+        f"{quota_manager.total_rpm} rpm / {quota_manager.total_rpd} rpd.\n\n"
+        "Your message with the key was deleted.",
+        parse_mode="HTML",
+    )
+
+
+@rt.message(Command("remove_api"))
+async def remove_api(message: Message, db_session: AsyncSession, command: CommandObject):
+    tele_id = message.from_user.id
+    if await get_user_authority(db_session, tele_id) != "owner":
+        logger.warning(f"Unauthorized remove_api attempt: user {tele_id}")
+        return
+
+    api_name = (command.args or "").strip()
+    if not api_name:
+        await message.reply("Usage: /remove_api <name>", parse_mode=None)
+        return
+
+    from bot.DB.repo.ai_api_repo import AiApiRepo
+    from bot.services.lorebot.runtime import reload_pool, quota_manager
+
+    if not await AiApiRepo(db_session).remove_key(api_name):
+        await message.reply(f"No key named '{api_name}'.", parse_mode=None)
+        return
+    await db_session.commit()
+
+    await reload_pool()
+    await message.reply(
+        f"Key <b>{api_name}</b> removed. Pool is now "
+        f"{len(quota_manager.slots)} buckets "
+        f"({quota_manager.total_rpd} rpd).",
+        parse_mode="HTML",
+    )
+
+
+@rt.message(Command("toggle_api"))
+async def toggle_api(message: Message, db_session: AsyncSession, command: CommandObject):
+    tele_id = message.from_user.id
+    if await get_user_authority(db_session, tele_id) != "owner":
+        logger.warning(f"Unauthorized toggle_api attempt: user {tele_id}")
+        return
+
+    api_name = (command.args or "").strip()
+    if not api_name:
+        await message.reply("Usage: /toggle_api <name>", parse_mode=None)
+        return
+
+    from bot.DB.repo.ai_api_repo import AiApiRepo
+    from bot.services.lorebot.runtime import reload_pool
+
+    repo = AiApiRepo(db_session)
+    entry = await repo.get_by_name(api_name)
+    if not entry:
+        await message.reply(f"No key named '{api_name}'.", parse_mode=None)
+        return
+
+    await repo.set_active(api_name, not entry.is_active)
+    await db_session.commit()
+    await reload_pool()
+
+    await message.reply(
+        f"Key <b>{api_name}</b> is now "
+        f"{'enabled' if not entry.is_active else 'disabled'}.",
+        parse_mode="HTML",
+    )
+
+
+@rt.message(Command("list_api"))
+async def list_api(message: Message, db_session: AsyncSession):
+    tele_id = message.from_user.id
+    if await get_user_authority(db_session, tele_id) != "owner":
+        logger.warning(f"Unauthorized list_api attempt: user {tele_id}")
+        return
+
+    from bot.DB.repo.ai_api_repo import AiApiRepo
+
+    keys = await AiApiRepo(db_session).get_all_with_models()
+    if not keys:
+        await message.reply(
+            "No API keys configured. Add one with /add_api <name> <key> "
+            "in private chat.",
+            parse_mode=None,
+        )
+        return
+
+    lines = ["🔑 <b>Gemini API keys</b>", "━━━━━━━━━━━━━━━━━━━━━━━━━━"]
+    for entry in keys:
+        state = "✅ active" if entry.is_active else "🚫 disabled"
+        lines.append(f"<b>{entry.api_name}</b> · {state}")
+        for m in sorted(entry.models, key=lambda x: x.model_name):
+            flag = "" if m.is_active else " (off)"
+            lines.append(
+                f"   └ <code>{m.model_name}</code> — "
+                f"{m.rpm} rpm / {m.rpd} rpd{flag}"
+            )
+        lines.append("")
+
+    await message.reply("\n".join(lines).rstrip(), parse_mode="HTML")
+
+
+@rt.message(Command("lore_quota"))
+async def lore_quota(message: Message, db_session: AsyncSession):
+    tele_id = message.from_user.id
+    if await get_user_authority(db_session, tele_id) not in ["owner", "admin"]:
+        logger.warning(f"Unauthorized lore_quota attempt: user {tele_id}")
+        return
+
+    from bot.services.lorebot.runtime import quota_manager
+    from bot.services.lorebot.quota import (
+        pacific_now,
+        seconds_to_pacific_midnight,
+    )
+
+    rows = await quota_manager.usage()
+    if not rows:
+        await message.reply(
+            "No API keys configured, so there is no quota to report.",
+            parse_mode=None,
+        )
+        return
+
+    rpd_used = sum(r["rpd_used"] for r in rows)
+    rpd_cap = sum(r["rpd"] for r in rows)
+    rpm_used = sum(r["rpm_used"] for r in rows)
+    rpm_cap = sum(r["rpm"] for r in rows)
+    reset_in = seconds_to_pacific_midnight()
+
+    lines = [
+        "📊 <b>Lore chatbot quota</b>",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        f"Daily: <b>{rpd_used}/{rpd_cap}</b> requests",
+        f"This minute: {rpm_used}/{rpm_cap}",
+        f"Resets in {reset_in // 3600}h {(reset_in % 3600) // 60}m "
+        f"(now {pacific_now().strftime('%H:%M')} PT)",
+        "",
+    ]
+    for r in rows:
+        bar = "🔴" if r["rpd_used"] >= r["rpd"] else (
+            "🟡" if r["rpm_used"] >= r["rpm"] else "🟢"
+        )
+        lines.append(
+            f"{bar} <code>{r['api_name']}/{r['model_name']}</code>\n"
+            f"   {r['rpd_used']}/{r['rpd']} today · "
+            f"{r['rpm_used']}/{r['rpm']} this min"
+        )
+
+    await message.reply("\n".join(lines), parse_mode="HTML")
+
+
+@rt.message(Command("lore_config"))
+async def lore_config(message: Message, db_session: AsyncSession, command: CommandObject):
+    """Show or set the chatbot tunables (turn memory, TTLs, wait budget)."""
+    tele_id = message.from_user.id
+    if await get_user_authority(db_session, tele_id) != "owner":
+        logger.warning(f"Unauthorized lore_config attempt: user {tele_id}")
+        return
+
+    from bot.DB.repo.lore_settings_repo import LoreSettingsRepo, TUNABLES
+    from bot.services.lorebot.runtime import reload_settings, settings
+
+    args = (command.args or "").split()
+
+    if not args:
+        current = settings.as_dict()
+        lines = [
+            "⚙️ <b>Lore chatbot config</b>",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        ]
+        for field, (low, high) in TUNABLES.items():
+            lines.append(
+                f"<code>{field}</code> = <b>{current.get(field)}</b>  "
+                f"<i>({low}–{high})</i>"
+            )
+        lines.append("")
+        lines.append(
+            f"<code>spoiler_default</code> = "
+            f"<b>{'on' if settings.spoiler_default else 'off'}</b>  "
+            f"<i>(/lore_spoiler on|off)</i>"
+        )
+        lines.append("")
+        lines.append("Set one with <code>/lore_config max_turns 15</code>")
+        lines.append(
+            "<code>user_rpd</code> is each user's daily question allowance."
+        )
+        await message.reply("\n".join(lines), parse_mode="HTML")
+        return
+
+    if len(args) != 2 or not args[1].lstrip("-").isdigit():
+        await message.reply(
+            "Usage: /lore_config <field> <number>\n"
+            "Run /lore_config with no arguments to see the fields.",
+            parse_mode=None,
+        )
+        return
+
+    ok, detail = await LoreSettingsRepo(db_session).update_field(
+        args[0], int(args[1])
+    )
+    if not ok:
+        await message.reply(detail, parse_mode=None)
+        return
+
+    await db_session.commit()
+    await reload_settings()
+    await message.reply(f"✅ {detail}", parse_mode=None)
+
+
+@rt.message(Command("lore_spoiler"))
+async def lore_spoiler(message: Message, db_session: AsyncSession, command: CommandObject):
+    """Set the bot-wide default for hiding lore answers behind a spoiler.
+
+    Groups that picked their own value via /group_settings keep it; this moves
+    everyone still on the default.
+    """
+    tele_id = message.from_user.id
+    if await get_user_authority(db_session, tele_id) != "owner":
+        logger.warning(f"Unauthorized lore_spoiler attempt: user {tele_id}")
+        return
+
+    from bot.DB.repo.lore_settings_repo import LoreSettingsRepo
+    from bot.services.lorebot.runtime import reload_settings, settings
+
+    arg = (command.args or "").strip().lower()
+    if arg not in ("on", "off"):
+        await message.reply(
+            "Usage: /lore_spoiler on|off\n"
+            f"Currently: {'on' if settings.spoiler_default else 'off'}\n\n"
+            "This is the default for every chat. Groups that set their own "
+            "preference with /group_settings are not affected.",
+            parse_mode=None,
+        )
+        return
+
+    enabled = arg == "on"
+    await LoreSettingsRepo(db_session).set_spoiler_default(enabled)
+    await db_session.commit()
+    await reload_settings()
+
+    await message.reply(
+        f"✅ Lore answers are now sent {'behind a spoiler' if enabled else 'in the open'} "
+        "by default.",
+        parse_mode=None,
+    )
+
+
+@rt.message(Command("lore_enable"))
+async def lore_enable(message: Message, db_session: AsyncSession):
+    """Bring /ask back before the daily reset, and clear the counters."""
+    tele_id = message.from_user.id
+    if await get_user_authority(db_session, tele_id) != "owner":
+        logger.warning(f"Unauthorized lore_enable attempt: user {tele_id}")
+        return
+
+    from bot.services.lorebot.runtime import (
+        set_ask_enabled,
+        quota_manager,
+        reload_pool,
+    )
+
+    await reload_pool()
+    cleared = await quota_manager.reset()
+    await set_ask_enabled(True)
+
+    await message.reply(
+        f"✅ /ask re-enabled and {cleared} counter keys cleared.\n"
+        f"Pool: {len(quota_manager.slots)} buckets, "
+        f"{quota_manager.total_rpd} rpd.\n\n"
+        "Note: this resets our bookkeeping, not Google's. If the real quota "
+        "is still spent, requests will 429 and the buckets will re-saturate.",
+        parse_mode=None,
+    )
+
+
 @rt.message(Command("edit_commands"))
 async def edit_commands(message: Message, db_session: AsyncSession):
     tele_id = message.from_user.id
@@ -637,14 +966,28 @@ async def admin_help(message: Message, db_session: AsyncSession):
 /add_admin - owner only
 /remove_admin - owner only
 /update_admin - owner only
+/edit_commands - owner only
+/update_assets - owner only
 /broadcast - admin + owner
 /broadcast_photo - admin + owner
 /broadcast_vid - admin + owner
+/users - admin + owner
 /ban_user - moderator + admin + owner
 /unban_user - moderator + admin + owner
 /send <message>
 /reply <message>
 /delete
+
+lore chatbot:
+/add_api <name> <key> - owner only, private chat only
+/remove_api <name> - owner only
+/toggle_api <name> - owner only
+/list_api - owner only
+/lore_config [field] [value] - owner only
+/lore_spoiler on|off - owner only, global spoiler default
+/lore_enable - owner only, undo a quota shutdown
+/lore_quota - admin + owner
+/group_settings - group admins, in their own group
 """
 
     await message.reply(help_text, parse_mode=None)

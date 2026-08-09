@@ -49,6 +49,10 @@ async def help(msg: Message):
         "/apoc - apocyliptic shadow card\n"
         "/anomaly - anomaly card\n"
         "/purefiction - PF card\n"
+        "/ask - ask me anything about Honkai: Star Rail lore\n"
+        "/ask_reset - start a fresh lore conversation\n"
+        "/ask_status - your lore chat usage for today\n"
+        "/group_settings - group admins: manage this group's features\n"
     )
     await msg.reply(text, parse_mode=None)
     

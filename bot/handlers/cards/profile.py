@@ -3,7 +3,7 @@ from aiogram.types import (
     Message , CallbackQuery , InputMediaPhoto, InputMediaAnimation , InlineQuery ,
     InlineQueryResult , InlineQueryResultArticle , InlineKeyboardMarkup , InlineKeyboardButton
     )
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+
 from aiogram.filters import Command
 from aiogram.exceptions import TelegramBadRequest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -163,8 +163,15 @@ async def handle_ccard(cb:CallbackQuery,db_session:AsyncSession):
             reply_markup=kb
         )
     file_id = file.photo[0].file_id
-    
-    await CacheRepo(db_session).set_cache(tele_id,file_id,cache_type='CHAR',data=str(slot),slot=slot)
+    charname= await CacheRepo(db_session).get_cache(tele_id,cache_type='PFP')
+    import ast
+    if charname:
+        charname= ast.literal_eval(charname.data)
+        charname={ item["slot"] : item["name"] for item in charname}
+        charname=charname.get(slot,"Unknown")
+    else:
+        charname="Unknown"
+    await CacheRepo(db_session).set_cache(tele_id,file_id,cache_type='CHAR',data=charname,slot=slot)
     await db_session.commit()
     
     

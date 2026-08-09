@@ -44,10 +44,83 @@ async def add_commands():
         except Exception as e:
             logger.error(f"error adding commands in startup: {e}")
             
+async def init_lorebot():
+    """Load the lore chatbot's settings and key pool, seeding a key from
+    GEMINI_API_KEY if the DB has none so an existing .env keeps working."""
+    from bot.config.config import GEMINI_API_KEY
+    from bot.services.lorebot.config import LORE_MODELS
+    from bot.services.lorebot.runtime import reload_settings, reload_pool
+    from bot.DB.repo.ai_api_repo import AiApiRepo
+
+    try:
+        await reload_settings()
+
+        async with session_factory() as session:
+            repo = AiApiRepo(session)
+            existing = await repo.get_all_with_models()
+
+            if not existing and GEMINI_API_KEY:
+                await repo.add_key("env", GEMINI_API_KEY, LORE_MODELS)
+                await session.commit()
+                logger.info("seeded lore api key 'env' from GEMINI_API_KEY")
+            elif existing:
+                # Backfill buckets for models added to LORE_MODELS since these
+                # keys were stored.
+                created = await repo.sync_models(LORE_MODELS)
+                if created:
+                    await session.commit()
+                    logger.info(f"backfilled {created} model buckets")
+
+        count = await reload_pool()
+        if not count:
+            logger.warning(
+                "lore chatbot has no API keys; /ask will report as unavailable"
+            )
+    except Exception as e:
+        logger.error(f"error initialising lore chatbot: {e}")
+
+
+async def lore_quota_watchdog():
+    """Cheap periodic check that survives restarts.
+
+    Two jobs: lift a quota-imposed /ask disable once the Pacific day rolls
+    over, and catch daily exhaustion that happened while nobody was asking.
+    A fire-once-daily job would miss both if the bot restarted at the wrong
+    moment, which on a free dyno is most moments.
+    """
+    from bot.services.lorebot.runtime import (
+        settings as lore_settings,
+        quota_manager,
+        daily_quota_reset,
+        on_rpd_exhausted,
+    )
+    from bot.services.lorebot.quota import pacific_day
+
+    try:
+        if lore_settings.rpd_disabled:
+            if lore_settings.rpd_disabled_on != pacific_day():
+                await daily_quota_reset()
+            return
+
+        if quota_manager.slots and await quota_manager.is_daily_exhausted():
+            await on_rpd_exhausted()
+    except Exception as e:
+        logger.error(f"lore quota watchdog error: {e}")
+
+
 async def on_startup():
     await init_db()
     await redis_connector.connect()
     await add_commands()
+    await init_lorebot()
+    scheduler.add_interval(
+        task_id="lore_quota_watchdog",
+        task_name="lore chatbot quota watchdog",
+        coro=lore_quota_watchdog,
+        interval=120,
+        delay=60,
+        max_errors=10,
+    )
     scheduler.add_daily(
         task_id="daily_reminder",
         task_name="daily reminder for users",

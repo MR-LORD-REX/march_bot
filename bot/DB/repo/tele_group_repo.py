@@ -48,7 +48,20 @@ class TeleGroupRepo(BaseRepo):
         if not group:
             logger.warning(f"group not found: {group_id}")
             return []
-        
+
         return group.users
-    
-    
+
+    async def set_lore_spoiler(self, group_id: int, spoiler: bool | None) -> bool:
+        """Set this group's spoiler preference.
+
+        None clears the override rather than pinning today's effective value,
+        so a later change by the owner still reaches groups that never chose
+        for themselves.
+        """
+        group = await self.get_group(group_id)
+        if not group:
+            logger.warning(f"group not found: {group_id}")
+            return False
+        group.lore_spoiler = spoiler
+        await self.update(group)
+        return True

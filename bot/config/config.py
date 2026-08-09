@@ -70,6 +70,13 @@ OWNER_TELE_ID=int(os.getenv("OWNER_TELE_ID","5103772471"))
 ADMIN_GC_ID=int(os.getenv("ADMIN_GC_ID","-1003477499464"))
 CHANNEL_LINK="https://t.me/Neuvillette_help"
 
+QDRANT_API_KEY=os.getenv("QDRANT_API_KEY","")
+QDRANT_URL=os.getenv("QDRANT_URL","")
+EMBEDDING_URL=os.getenv("EMBEDDING_URL","")
+COLLECTION=os.getenv("COLLECTION","hsr_lore-bge-m3")
+
+GEMINI_API_KEY=os.getenv("GEMINI_API_KEY","")
+
 PORT=os.getenv("PORT",8000)
 
 _render_url = os.getenv("RENDER_EXTERNAL_URL")
@@ -82,4 +89,5 @@ cmdavailability: CommandsAvailability=CommandsAvailability()
 users_record:UsersRecord=UsersRecord()
 groups_record:GroupsRecord=GroupsRecord()
 scheduler=Scheduler()
+
 

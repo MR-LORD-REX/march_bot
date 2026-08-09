@@ -5,9 +5,14 @@ from bot.DB.base import base
 
 class TeleGroup(base):
     __tablename__="telegram_groups"
-    
+
     group_id:Mapped[int]=mapped_column(BIGINT,unique=True,primary_key=True)
     group_name:Mapped[str]=mapped_column(String,nullable=True)
     banned:Mapped[bool]=mapped_column(BOOLEAN,default=False)
-    
+
+    lore_spoiler:Mapped[bool|None]=mapped_column(BOOLEAN,nullable=True,default=None)
+
     users: Mapped[list["UsersInGroup"]] = relationship("UsersInGroup", back_populates="group", cascade="all, delete-orphan")
+    command_settings: Mapped[list["GroupCommandSettings"]] = relationship(
+        "GroupCommandSettings", back_populates="group", cascade="all, delete-orphan"
+    )
