@@ -15,6 +15,8 @@ RUN git clone --depth=1 https://github.com/DEViantUA/StarRailCardData.git /tmp/S
     ASSETS_DIR=$(python -c "import starrailcard, os; print(os.path.join(os.path.dirname(starrailcard.__file__), 'src', 'assets'))") && \
     cp -r /tmp/StarRailCardData/asset/. "$ASSETS_DIR/" && \
     rm -rf /tmp/StarRailCardData
+    
+RUN pip install "numpy<2" --force-reinstall --no-cache-dir
 
 COPY bot ./bot
 
