@@ -62,6 +62,7 @@ REDIS_HOST=os.getenv('REDIS_HOST')
 REDIS_PORT=int(os.getenv('REDIS_PORT', 6379))
 REDIS_PASS=os.getenv('REDIS_PASS')
 REDIS_USERNAME=os.getenv('REDIS_USERNAME', 'default')
+REDIS_SSL=os.getenv('REDIS_SSL', 'true').strip().lower() in {'1', 'true', 'yes', 'on'}
 
 WEBHOOK_PATH=os.getenv("WEBHOOK_PATH","/webhook")
 WEBHOOK_SECRET=os.getenv("WEBHOOK_SECRET","Nous")
@@ -89,5 +90,4 @@ cmdavailability: CommandsAvailability=CommandsAvailability()
 users_record:UsersRecord=UsersRecord()
 groups_record:GroupsRecord=GroupsRecord()
 scheduler=Scheduler()
-
 

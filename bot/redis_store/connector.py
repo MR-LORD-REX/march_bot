@@ -1,7 +1,7 @@
 import redis.asyncio as redis
 from typing import Optional
 import logging
-from bot.config.config import REDIS_HOST, REDIS_PORT, REDIS_PASS, REDIS_USERNAME
+from bot.config.config import REDIS_HOST, REDIS_PORT, REDIS_PASS, REDIS_USERNAME, REDIS_SSL
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,7 @@ class RedisConnector:
                 port=REDIS_PORT,
                 decode_responses=True,
                 username=REDIS_USERNAME,
+                ssl=REDIS_SSL,
                 password=REDIS_PASS,
             )
             await self._client.ping()
