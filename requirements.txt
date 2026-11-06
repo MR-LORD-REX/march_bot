@@ -19,6 +19,7 @@ tzdata
 hsr-cards>=1.0.9
 honkai-cards>=1.0.6
 
-git+https://github.com/Akane7101/StarRailCard.git
+
 aiohttp>=3.9.0,<3.14
 pydantic>=2.4.1,<2.13
+greenlet
