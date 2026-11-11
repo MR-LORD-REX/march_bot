@@ -16,6 +16,8 @@ from honkai_cards import Teammate
 from bot.utils.images import image_to_tgFile
 from bot.utils.gifs import get_gif
 from bot.handlers.cards.kb import make_report_keboard , make_profile_keyboard , make_back_kb
+from bot.auth.handoff import create_handoff
+from bot.auth.mini_app import encode_handoff
 
 from bot.DB.repo.game_ids_repo import GameIDs_repo
 from bot.DB.repo.cache_repo import CacheRepo
@@ -137,7 +139,22 @@ async def handle_ccard(cb:CallbackQuery,db_session:AsyncSession):
     bot_me = await cb.bot.me()
     chat_id    = cb.message.chat.id
     message_id = cb.message.message_id
-    kb=make_back_kb(tele_id, slot, uid.game_id, bot_me.username, chat_id, message_id)
+    handoff = await create_handoff(
+        telegram_id=tele_id,
+        chat_id=chat_id,
+        message_id=message_id,
+        uid=uid.game_id,
+        slot=slot,
+    )
+    kb=make_back_kb(
+        tele_id,
+        slot,
+        uid.game_id,
+        bot_me.username,
+        chat_id,
+        message_id,
+        handoff_reference=encode_handoff(handoff),
+    )
     try:
         if res.cached and res.card:
             photo=InputMediaPhoto(media=res.card)
@@ -219,45 +236,84 @@ async def handle_back(cb:CallbackQuery,db_session:AsyncSession):
     await CacheRepo(db_session).set_cache(tele_id,file_id,cache_type='PFP',data=f"{res.data}",slot=None)
     await db_session.commit()
 
+async def _deliver_custom_team(msg: Message, db_session: AsyncSession, slot: int, teammates) -> None:
+    tele_id = msg.from_user.id
+    uid = await GameIDs_repo(db_session).get_active_UID(tele_id)
+    if not uid:
+        await msg.reply("please login using /login or /switch")
+        return
+
+    res = await get_custom_card(db_session, tele_id, slot, teammates)
+    if not res or not getattr(res, "card", None):
+        kb = make_report_keboard(tele_id, uid.game_id, r_type='CHAR')
+        await _reply_card_error(msg, _CHAR_ERROR, kb)
+        return
+
+    sent = await msg.reply_photo(photo=await image_to_tgFile(res.card))
+    if not sent:
+        await msg.reply("Failed to send card. Please try again.")
+        return
+
+    try:
+        handoff = await create_handoff(
+            telegram_id=tele_id,
+            chat_id=sent.chat.id,
+            message_id=sent.message_id,
+            uid=uid.game_id,
+            slot=slot,
+        )
+        bot_me = await msg.bot.me()
+        await sent.edit_reply_markup(
+            reply_markup=make_back_kb(
+                tele_id,
+                slot,
+                uid.game_id,
+                bot_me.username,
+                sent.chat.id,
+                sent.message_id,
+                handoff_reference=encode_handoff(handoff),
+            )
+        )
+    except Exception:
+        logger.exception("could not attach custom team navigation for %s", tele_id)
+    if sent.photo:
+        await CacheRepo(db_session).set_cache(
+            tele_id,
+            sent.photo[0].file_id,
+            cache_type='CHAR',
+            data=str(slot),
+            slot=slot,
+        )
+        await db_session.commit()
+
+
 @rt.callback_query(lambda c: c.data.startswith("cust_C:"))
 async def cust_team(cb: CallbackQuery, db_session: AsyncSession):
-    """Handles custom team webapp data returned via sendData.
-
-    Expected cb.data format:  cust_C:{tele_id}:{slot}
-    The webapp sends its payload via Telegram.WebApp.sendData(), which arrives
-    as a separate web_app_data update — handled in handle_webapp_data below.
-    This callback simply opens the webapp URL for the user.
-    """
+    """Open the custom-team Mini App from an inline button."""
     tele_id = cb.from_user.id
-    data    = cb.data.split(":")
-    to      = int(data[1])
-    slot    = int(data[2])
+    data = cb.data.split(":")
+    to = int(data[1])
+    slot = int(data[2])
     if tele_id != to:
         await cb.answer("not for you", show_alert=True)
         return
-    await cb
+
+    uid = await GameIDs_repo(db_session).get_active_UID(tele_id)
+    if not uid:
+        await cb.answer("please login first", show_alert=True)
+        return
+    await cb.answer()
+    await cb.message.reply(
+        "Open the custom team builder from the card buttons.",
+        reply_markup=make_back_kb(tele_id, slot, uid.game_id, bot_username=None),
+    )
 
 
 @rt.message(lambda m: m.web_app_data is not None)
 async def handle_webapp_data(msg: Message, db_session: AsyncSession):
-    """Receives the JSON payload sent by the webapp via Telegram.WebApp.sendData().
-
-    Payload schema:
-    {
-      "slot": int,
-      "teammates": [
-        {
-          "characterId": str,
-          "lightCone": str,
-          "characterEidolon": int,
-          "lightConeSuperimposition": int
-        },
-        ...  (exactly 3 entries)
-      ]
-    }
-    """
+    """Receives the JSON payload sent by the webapp via Telegram.WebApp.sendData()."""
     tele_id = msg.from_user.id
-    raw     = msg.web_app_data.data
+    raw = msg.web_app_data.data
 
     try:
         payload = json.loads(raw)
@@ -265,9 +321,9 @@ async def handle_webapp_data(msg: Message, db_session: AsyncSession):
         await msg.reply("Invalid data from webapp.")
         return
     logger.info(f"Received webapp data: {payload}")
-    slot          = int(payload.get("slot", 1))
+    slot = int(payload.get("slot", 1))
     teammates_raw = payload.get("teammates", [])
-    
+
     if len(teammates_raw) != 3:
         await msg.reply("Please select exactly 3 teammates.")
         return
@@ -275,10 +331,10 @@ async def handle_webapp_data(msg: Message, db_session: AsyncSession):
     try:
         teammates = [
             Teammate(
-                characterId              = tm["characterId"],
-                lightCone               = tm["lightCone"],
-                characterEidolon        = int(tm.get("characterEidolon", 0)),
-                lightConeSuperimposition= int(tm.get("lightConeSuperimposition", 1)),
+                characterId=tm["characterId"],
+                lightCone=tm["lightCone"],
+                characterEidolon=int(tm.get("characterEidolon", 0)),
+                lightConeSuperimposition=int(tm.get("lightConeSuperimposition", 1)),
             )
             for tm in teammates_raw
         ]
@@ -291,23 +347,9 @@ async def handle_webapp_data(msg: Message, db_session: AsyncSession):
         get_gif("loading"),
         caption="Building your custom team card…"
     )
-
-    res = await get_custom_card(db_session, tele_id, slot, teammates)
-
     await _delete_message(loading_msg)
+    await _deliver_custom_team(msg, db_session, slot, teammates)
 
-    if not res or not getattr(res, "card", None):
-        uid = await GameIDs_repo(db_session).get_active_UID(tele_id)
-        kb  = make_report_keboard(tele_id, uid.game_id if uid else 0, r_type='CHAR')
-        await _reply_card_error(msg, _CHAR_ERROR, kb)
-        return
-
-    try:
-        file  = await image_to_tgFile(res.card)
-        await msg.reply_photo(photo=file, caption="✦ Custom Team Card")
-    except Exception as e:
-        logger.error(f"Failed to send custom card: {e}")
-        await msg.reply("Failed to send card. Please try again.")
 
 async def handle_webapp_deeplink(msg: Message, payload: str, db_session: AsyncSession):
     """Handles deep link payload from Web App.
@@ -318,7 +360,7 @@ async def handle_webapp_deeplink(msg: Message, payload: str, db_session: AsyncSe
     if len(parts) != 5 or parts[0] != 'c':
         await msg.reply("Invalid custom team data.")
         return
-        
+
     try:
         slot = int(parts[1])
         teammates = []
@@ -344,19 +386,5 @@ async def handle_webapp_deeplink(msg: Message, payload: str, db_session: AsyncSe
         get_gif("loading"),
         caption="Building your custom team card…"
     )
-
-    res = await get_custom_card(db_session, tele_id, slot, teammates)
     await _delete_message(loading_msg)
-
-    if not res or not getattr(res, "card", None):
-        uid = await GameIDs_repo(db_session).get_active_UID(tele_id)
-        kb  = make_report_keboard(tele_id, uid.game_id if uid else 0, r_type='CHAR')
-        await _reply_card_error(msg, _CHAR_ERROR, kb)
-        return
-
-    try:
-        file = await image_to_tgFile(res.card)
-        await msg.reply_photo(photo=file, caption="✦ Custom Team Card")
-    except Exception as e:
-        logger.error(f"Failed to send custom card: {e}")
-        await msg.reply("Failed to send card. Please try again.")
+    await _deliver_custom_team(msg, db_session, slot, teammates)

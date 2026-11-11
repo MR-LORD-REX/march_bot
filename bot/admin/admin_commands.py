@@ -14,9 +14,12 @@ import logging
 import asyncio
 
 from bot.config.config import OWNER_TELE_ID , cmdavailability , ADMIN_GC_ID
+from bot.auth.authority import get_authority, require_authority
+from bot.services.reports.workflow import create_or_get_report, notify_report_created, deliver_reply
 from bot.DB.repo.admin_repo import AdminRepo
 from bot.DB.repo.tele_group_repo import TeleGroupRepo
 from bot.DB.repo.user_repo import UserRepo
+from bot.DB.repo.report_repo import ReportRepo
 from bot.DB.repo.cmd_meta_repo import CommandMetaRepo
 
 rt = Router()
@@ -39,14 +42,7 @@ def setup_admin_kb() -> InlineKeyboardMarkup:
 
 
 async def get_user_authority(db_session: AsyncSession, tele_id: int):
-    if tele_id == OWNER_TELE_ID:
-        return "owner"
-
-    user = await AdminRepo(db_session).get_admin(tele_id)
-    if not user:
-        return None
-
-    return user.authority
+    return await get_authority(db_session, tele_id)
 
 
 def _caption_kwargs(message: Message) -> dict:
@@ -973,6 +969,8 @@ async def admin_help(message: Message, db_session: AsyncSession):
 /broadcast_vid - admin + owner
 /users - admin + owner
 /ban_user - moderator + admin + owner
+/r <report_id> <message> - moderator + admin + owner
+/report_close <report_id> - moderator + admin + owner
 /unban_user - moderator + admin + owner
 /send <message>
 /reply <message>
@@ -1026,26 +1024,99 @@ async def set_authority(query: CallbackQuery, db_session: AsyncSession):
 # =============================== Report Callback =================================
 
 @rt.callback_query(F.data.startswith("report:"))
-async def handle_report(cb:CallbackQuery,db_session:AsyncSession):
-    # send dm to owner with the report details
-    data=cb.data.split(":")
-    r_type=data[1]
-    tele_id=int(data[2])
-    uid=int(data[3])
-    user=await UserRepo(db_session).get_by_tele_id(tele_id)
-    if not user:
-        await cb.answer("user not found",show_alert=True)
+async def handle_report(cb: CallbackQuery, db_session: AsyncSession):
+    data = cb.data.split(":")
+    if len(data) < 4:
+        await cb.answer("malformed report", show_alert=True)
         return
-    report_text=f"Report received for {r_type} card generation\n\n"
-    report_text+=f"User details:\n"
-    report_text+=f"Telegram ID: {user.telegram_id}\n"
-    report_text+=f"Username: @{user.username}\n"
-    report_text+=f"Display Name: {user.display_name}\n"
-    report_text+=f"Game ID: {uid}\n"
-    report_text+=f"Report Type: {r_type}\n"
-    from bot.core.main import bot
-    await bot.send_message(ADMIN_GC_ID,report_text)
-    await cb.answer("report sent to bot admins",show_alert=True)
+
+    report_type = data[1]
+    try:
+        reporter_id = int(data[2])
+        uid = int(data[3])
+    except ValueError:
+        await cb.answer("malformed report", show_alert=True)
+        return
+
+    if cb.from_user.id != reporter_id:
+        await cb.answer("this report button is not for you", show_alert=True)
+        return
+
+    chat_id = cb.message.chat.id if cb.message else None
+    message_id = cb.message.message_id if cb.message else None
+    report, created = await create_or_get_report(
+        db_session,
+        cb.bot,
+        reporter_id=reporter_id,
+        report_type=report_type,
+        uid=uid,
+        origin_chat_id=chat_id,
+        origin_message_id=message_id,
+    )
+    if created:
+        await notify_report_created(db_session, cb.bot, report)
+        await db_session.commit()
+
+    if created:
+        await cb.answer(f"Report #{report.id} sent to bot admins", show_alert=True)
+    else:
+        await cb.answer(f"Report #{report.id} is already open", show_alert=True)
+
+
+@rt.message(Command("r"))
+async def reply_to_report(message: Message, db_session: AsyncSession, command: CommandObject):
+    tele_id = message.from_user.id
+    if not await require_authority(db_session, tele_id, "moderator"):
+        return
+
+    args = (command.args or "").split(maxsplit=1)
+    if len(args) != 2:
+        await message.reply("Usage: /r <report_id> <message>")
+        return
+    try:
+        report_id = int(args[0])
+    except ValueError:
+        await message.reply("Report id must be a number")
+        return
+
+    report = await ReportRepo(db_session).get(report_id)
+    if not report:
+        await message.reply(f"Report #{report_id} not found")
+        return
+    if report.status in {"resolved", "closed"}:
+        await message.reply(f"Report #{report_id} is already {report.status}")
+        return
+
+    delivered = await deliver_reply(db_session, message.bot, report, tele_id, args[1])
+    await db_session.commit()
+    await message.reply(
+        f"Reply recorded for report #{report_id}"
+        + ("" if delivered else " (delivery failed; check the logs)")
+    )
+
+
+@rt.message(Command("report_close"))
+async def close_report(message: Message, db_session: AsyncSession, command: CommandObject):
+    tele_id = message.from_user.id
+    if not await require_authority(db_session, tele_id, "moderator"):
+        return
+    if not command.args:
+        await message.reply("Usage: /report_close <report_id>")
+        return
+    try:
+        report_id = int(command.args.strip())
+    except ValueError:
+        await message.reply("Report id must be a number")
+        return
+    repo = ReportRepo(db_session)
+    report = await repo.get(report_id)
+    if not report:
+        await message.reply(f"Report #{report_id} not found")
+        return
+    await repo.resolve(report, tele_id)
+    await db_session.commit()
+    await message.reply(f"Report #{report_id} resolved")
+
 
 @rt.callback_query(F.data.startswith("ban_user:"))
 async def handle_ban_user(cb:CallbackQuery,db_session:AsyncSession):

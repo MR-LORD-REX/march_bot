@@ -17,14 +17,15 @@ base=Base()
 logger=logging.getLogger(__name__)
 
 async def init_db():
-    try:
-        async with engine.begin() as con:
-            await con.run_sync(base.metadata.create_all)
-            logger.info("databases created succesfully")
+    """Schema creation is owned exclusively by Alembic.
 
-    except Exception as e:
-        logger.error(f"error in startup : {e}")
-        sys.exit(1)
+    Running `alembic upgrade head` is a deploy step. Startup must never
+    silently invent tables or drift from the migration history.
+    """
+    logger.info("database schema is managed by Alembic")
+
+
+
         
 async def add_commands():
     from bot.core.main import dp

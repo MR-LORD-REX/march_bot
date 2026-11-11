@@ -9,7 +9,8 @@ from bot.middleware.commands import CommandChecker
 from bot.config.config import BOT_TOKEN , MODE , ENV , PORT , cmdavailability
 from bot.core.startup import on_startup
 from bot.core.shutdown import on_shutdown
-from bot.core.webhook import setup_webhook , setup_polling
+from bot.api.webhook import setup_webhook
+from bot.api.polling import setup_polling
 
 
 dp=Dispatcher()

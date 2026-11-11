@@ -107,9 +107,6 @@ class ChatRedis:
             self._user_acquire = c.register_script(_USER_ACQUIRE_LUA)
         return self._acquire, self._refund, self._saturate, self._user_acquire
 
-    # ------------------------------------------------------------------
-    # conversation memory
-    # ------------------------------------------------------------------
 
     async def get_history(self, user_id: int) -> list[dict[str, str]]:
         """Oldest-first list of {"q", "a"} turns. Never raises -- losing
@@ -162,9 +159,6 @@ class ChatRedis:
             logger.error(f"redis history_len failed for {user_id}: {e}")
             return 0
 
-    # ------------------------------------------------------------------
-    # reply addressability
-    # ------------------------------------------------------------------
 
     async def remember_answer(
         self,

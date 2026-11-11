@@ -5,7 +5,7 @@ from bot.DB.base import base
 class Admins(base):
     __tablename__="admins"
     
-    telegram_id:Mapped[int]=mapped_column(BIGINT,primary_key=True,nullable=False,unique=True)
+    telegram_id:Mapped[int]=mapped_column(BIGINT,primary_key=True,nullable=False)
     username:Mapped[str]=mapped_column(String,nullable=True)
     display_name:Mapped[str]=mapped_column(String,nullable=True)
     authority:Mapped[str]=mapped_column(

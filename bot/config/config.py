@@ -82,6 +82,15 @@ PORT=os.getenv("PORT",8000)
 
 _render_url = os.getenv("RENDER_EXTERNAL_URL")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL") or (_render_url if _render_url else f"http://localhost:{PORT}")
+PANEL_URL = os.getenv("PANEL_URL", WEBHOOK_URL)
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "https://mr-lord-rex.github.io,https://tele-bots.visihost.net",
+    ).split(",")
+    if origin.strip()
+]
 
 PROXY=os.getenv("proxy")
 

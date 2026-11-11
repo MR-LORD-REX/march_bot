@@ -9,6 +9,7 @@ from bot.handlers.cards.endgame import rt as endcards
 from bot.handlers.groups import rt as groups
 from bot.handlers.live_cards import rt as live_cards
 from bot.admin.admin_commands import rt as admins
+from bot.admin.panel.bot import rt as admin_panel
 from bot.handlers.settings import rt as settings
 from bot.handlers.inline_commands import rt as inline_commands
 from bot.handlers.chatbot import rt as chatbot
@@ -22,6 +23,7 @@ routers=[
     profile,
     live_cards,
     admins,
+    admin_panel,
     settings,
     endcards,
     inline_commands,

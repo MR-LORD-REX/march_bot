@@ -10,6 +10,9 @@ from bot.DB.models.ai_api import AiApi
 from bot.DB.models.ai_models import AiModels
 from bot.DB.models.lore_settings import LoreSettings
 from bot.DB.models.group_settings import GroupCommandSettings
+from bot.DB.models.admins import Admins
+from bot.DB.models.reports import Report, ReportEvent, ReportMessage, WebSession
+from bot.DB.models.web_handoff import WebHandoff
 
 __all__ = [
     "Cache",
@@ -24,4 +27,10 @@ __all__ = [
     "AiModels",
     "LoreSettings",
     "GroupCommandSettings",
+    "Admins",
+    "Report",
+    "ReportEvent",
+    "ReportMessage",
+    "WebSession",
+    "WebHandoff",
 ]

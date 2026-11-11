@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>HSR Admin · Control room</title>
+  <link rel="stylesheet" href="/admin/static/panel.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">✦</div>
+        <div><strong>March 7th</strong><small>Control room</small></div>
+      </div>
+      <nav aria-label="Panel sections">
+        <button class="nav-button active" data-view="overview" type="button">Overview</button>
+        <button class="nav-button" data-view="reports" type="button">Reports</button>
+        <button class="nav-button hidden" data-view="users" type="button" data-capability="users">Users</button>
+        <button class="nav-button hidden" data-view="admins" type="button" data-capability="admins">Authority</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div id="identity">Checking session…</div>
+        <button id="logout" class="button danger sidebar-action" type="button">Sign out</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topline">
+        <div>
+          <p class="eyebrow">✦ Operations</p>
+          <h1 id="view-title">Overview</h1>
+          <p id="view-subtitle" class="muted">A quiet look at the bot’s live queues.</p>
+        </div>
+        <span id="authority-chip" class="chip">connecting</span>
+      </header>
+
+      <section id="view-overview">
+        <div class="cards">
+          <article class="card"><span class="card-label">Open reports</span><strong id="stat-open" class="card-value">—</strong></article>
+          <article class="card"><span class="card-label">Total reports</span><strong id="stat-total" class="card-value">—</strong></article>
+          <article class="card"><span class="card-label">Registered users</span><strong id="stat-users" class="card-value">—</strong></article>
+          <article class="card"><span class="card-label">Staff</span><strong id="stat-admins" class="card-value">—</strong></article>
+        </div>
+        <div class="grid">
+          <section class="panel">
+            <div class="panel-head"><h2>Recent reports</h2><span class="chip">live queue</span></div>
+            <div id="overview-reports" class="list"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2>How it works</h2></div>
+            <div class="detail stack">
+              <p class="muted flush">Reports arrive from the card buttons. Moderators can reply here or with <code>/r &lt;id&gt; &lt;message&gt;</code> in the bot.</p>
+              <p class="muted flush">Replies are delivered to the origin chat when possible, with a direct Telegram mention of the reporter.</p>
+              <p class="muted flush">Only owner, admin, and moderator accounts can reach this panel.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-reports" class="hidden">
+        <div class="grid">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Report queue</h2>
+              <select id="report-filter" aria-label="Report status">
+                <option value="open">Open &amp; claimed</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+            <div id="report-list" class="list"></div>
+          </section>
+          <section id="report-detail" class="panel">
+            <div class="empty">Select a report to see its timeline.</div>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-users" class="hidden">
+        <section class="panel">
+          <div class="panel-head"><h2>Registered users</h2><span id="user-count" class="chip">—</span></div>
+          <div id="user-table-wrap"></div>
+          <div class="row pager">
+            <button id="users-prev" class="button" type="button">Previous</button>
+            <button id="users-next" class="button" type="button">Next</button>
+          </div>
+        </section>
+      </section>
+
+      <section id="view-admins" class="hidden">
+        <section class="panel">
+          <div class="panel-head"><h2>Authority roster</h2><span class="chip">owner only</span></div>
+          <div id="admin-table-wrap"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/admin/static/panel.js"></script>
+</body>
+</html>

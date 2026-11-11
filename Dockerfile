@@ -20,8 +20,11 @@ RUN pip install "numpy<2" --force-reinstall --no-cache-dir
 
 COPY bot ./bot
 
+COPY alembic.ini .
+COPY alembic ./alembic
+
 COPY main.py .
 
 EXPOSE 8000
 
-CMD ["python", "main.py"]
+CMD ["sh", "-c", "alembic upgrade head && python main.py"]

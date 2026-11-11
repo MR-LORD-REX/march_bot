@@ -1,7 +1,7 @@
-from typing import Literal , List , Dict
+from typing import Literal, List, Dict
 
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import ( InlineKeyboardButton , InlineQuery , WebAppInfo)
+from aiogram.types import InlineKeyboardButton, InlineQuery, WebAppInfo
 
 
 def make_report_keboard(tele_id:int , uid:int , r_type:Literal['PFP','CHAR',"other"]|str='PFP'):
@@ -26,15 +26,19 @@ def make_profile_keyboard(tele_id:int,chars:List[Dict[str,int]]):
     return kb.as_markup()
 
 def make_back_kb(tele_id:int, slot:int, uid:int, bot_username:str = None,
-                 chat_id:int = None, message_id:int = None):
+                 chat_id:int = None, message_id:int = None, handoff_reference:str | None = None):
     kb = InlineKeyboardBuilder()
     kb.row(InlineKeyboardButton(text="back", callback_data=f"back_P:{tele_id}"))
-    
 
-    if bot_username:
-        # startapp format: uid_slot_chatId_messageId_botUsername
-        # The webapp reads these to POST back to the correct message.
-        # We use underscore (_) as delimiter because chat_id can be negative (contains dash)
+    if bot_username and handoff_reference:
+        # startapp carries only a server-issued reference; origin chat/message
+        # are resolved from Redis when the Mini App submits.
+        startapp = f"h_{handoff_reference}"
+        direct_link = f"https://t.me/{bot_username}/team?startapp={startapp}"
+        kb.row(InlineKeyboardButton(text="custom team", url=direct_link))
+    elif bot_username and chat_id is not None and message_id is not None:
+        # Transitional shape for the currently deployed Mini App. New code
+        # should always pass handoff_reference instead.
         startapp = f"{uid}_{slot}_{chat_id}_{message_id}_{bot_username}"
         direct_link = f"https://t.me/{bot_username}/team?startapp={startapp}"
         kb.row(InlineKeyboardButton(text="custom team", url=direct_link))
