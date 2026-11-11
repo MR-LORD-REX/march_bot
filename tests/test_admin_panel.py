@@ -62,5 +62,49 @@ class AdminPanelTests(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertIn("reserved", response.json()["detail"])
 
+    def test_moderator_cannot_mutate_users(self):
+        with patch(
+            "server.admin.panel.routes.require_panel_user",
+            AsyncMock(return_value={"telegram_id": 2, "authority": "moderator"}),
+        ):
+            response = self.client.post(
+                "/admin/api/users/99/action",
+                json={"action": "warn"},
+            )
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("authority", response.json()["detail"])
+
+    def test_broadcast_rejects_invalid_html_before_queueing(self):
+        with patch(
+            "server.admin.panel.routes.require_panel_user",
+            AsyncMock(return_value={"telegram_id": 2, "authority": "admin"}),
+        ), patch("server.admin.panel.routes.enqueue", AsyncMock()) as enqueue:
+            response = self.client.post(
+                "/admin/api/broadcasts",
+                json={
+                    "audience": "users",
+                    "body": "<message>bad</message>",
+                    "parse_mode": "HTML",
+                },
+            )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("Telegram HTML", response.json()["detail"])
+        enqueue.assert_not_awaited()
+
+    def test_user_capabilities_split_read_and_mutation(self):
+        moderator = {
+            "authority": "moderator",
+            "telegram_id": 2,
+            "capabilities": {
+                "ban": False,
+                "warn": True,
+                "reset_warns": False,
+                "set_language": False,
+            },
+        }
+        self.assertFalse(moderator["capabilities"]["ban"])
+        self.assertTrue(moderator["capabilities"]["warn"])
+
+
 if __name__ == "__main__":
     unittest.main()

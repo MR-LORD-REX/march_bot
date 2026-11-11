@@ -1,4 +1,5 @@
 from DB.models.cache import Cache
+from DB.models.broadcast import Broadcast
 from DB.models.command_meta import CommandsMeta
 from DB.models.game_ids import GameID
 from DB.models.tele_group import TeleGroup
@@ -16,6 +17,7 @@ from DB.models.web_handoff import WebHandoff
 
 __all__ = [
     "Cache",
+    "Broadcast",
     "CommandsMeta",
     "GameID",
     "TeleGroup",
