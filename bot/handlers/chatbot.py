@@ -6,7 +6,7 @@ import html
 import logging
 import re
 
-from bot.config.config import users_record, cmdavailability
+from shared.config.settings import users_record, cmdavailability
 from bot.services.lorebot.chat import Turn
 from bot.services.lorebot.chat_redis import chat_redis
 from bot.services.lorebot.spoiler import apply_spoiler, spoiler_enabled
@@ -46,8 +46,8 @@ async def _ask_allowed_here(msg: Message) -> bool:
     if msg.chat.type not in GROUP_TYPES:
         return True
     try:
-        from bot.DB.asyncsessions import session_factory
-        from bot.DB.repo.group_settings_repo import GroupCommandSettingsRepo
+        from DB.asyncsessions import session_factory
+        from DB.repo.group_settings_repo import GroupCommandSettingsRepo
 
         async with session_factory() as session:
             state = await GroupCommandSettingsRepo(session).is_enabled(

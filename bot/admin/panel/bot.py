@@ -9,9 +9,9 @@ from aiogram.types import InlineKeyboardButton, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.admin.panel.sessions import create_login_token
-from bot.auth.authority import get_authority
-from bot.config.config import PANEL_URL
+from shared.auth.panel_sessions import create_login_token
+from shared.auth.authority import get_authority
+from shared.config.settings import PANEL_URL
 
 rt = Router()
 

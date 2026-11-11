@@ -9,7 +9,7 @@ from typing import Any
 import json
 import logging
 
-from bot.redis_store import redis_connector
+from shared.redis import redis_connector
 
 logger = logging.getLogger(__name__)
 

@@ -111,8 +111,8 @@ class QuotaManager:
     async def refresh(self) -> int:
         """Reload the pool from the DB. Called on startup and after any key
         change so /add_api takes effect without a restart."""
-        from bot.DB.asyncsessions import session_factory
-        from bot.DB.repo.ai_api_repo import AiApiRepo
+        from DB.asyncsessions import session_factory
+        from DB.repo.ai_api_repo import AiApiRepo
 
         try:
             async with session_factory() as session:

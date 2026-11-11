@@ -5,7 +5,7 @@ import aiohttp
 from aiohttp.client import ClientTimeout
 import asyncio
 
-from bot.config.config import ( 
+from shared.config.settings import ( 
     EMBEDDING_URL as EMBED_URL , 
     QDRANT_API_KEY , 
     QDRANT_URL , 

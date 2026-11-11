@@ -30,16 +30,17 @@ def make_back_kb(tele_id:int, slot:int, uid:int, bot_username:str = None,
     kb = InlineKeyboardBuilder()
     kb.row(InlineKeyboardButton(text="back", callback_data=f"back_P:{tele_id}"))
 
-    if bot_username and handoff_reference:
-        # startapp carries only a server-issued reference; origin chat/message
-        # are resolved from Redis when the Mini App submits.
-        startapp = f"h_{handoff_reference}"
+    if bot_username and handoff_reference and chat_id is not None and message_id is not None:
+        # The deployed Mini App parses five underscore-delimited fields. Keep
+        # that wire shape; the server resolves the origin tuple to a trusted
+        # handoff before editing any message. New clients should send
+        # ``handoff`` explicitly instead.
+        startapp = f"{uid}_{slot}_{chat_id}_{message_id}_{bot_username}"
         direct_link = f"https://t.me/{bot_username}/team?startapp={startapp}"
         kb.row(InlineKeyboardButton(text="custom team", url=direct_link))
-    elif bot_username and chat_id is not None and message_id is not None:
-        # Transitional shape for the currently deployed Mini App. New code
-        # should always pass handoff_reference instead.
-        startapp = f"{uid}_{slot}_{chat_id}_{message_id}_{bot_username}"
+    elif bot_username and handoff_reference:
+        # Safe bridge for clients that can send the compact reference.
+        startapp = f"h_{handoff_reference}"
         direct_link = f"https://t.me/{bot_username}/team?startapp={startapp}"
         kb.row(InlineKeyboardButton(text="custom team", url=direct_link))
     else:

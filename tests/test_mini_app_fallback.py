@@ -4,8 +4,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from aiogram.types import Chat, Message, PhotoSize
-from bot.api.routes import mini_app
-from bot.auth.handoff import Handoff
+from server.routes import mini_app
+from shared.auth.handoff import Handoff
 
 
 class MiniAppFallbackTests(unittest.IsolatedAsyncioTestCase):
@@ -95,6 +95,55 @@ class MiniAppFallbackTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("reply_markup", bot.send_photo.await_args.kwargs)
         edit_markup.assert_awaited_once_with(reply_markup="kb")
 
+
+
+class HandoffCompatibilityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_legacy_lookup_only_returns_issued_handoff(self):
+        handoff = Handoff(
+            token="abc123",
+            telegram_id=42,
+            chat_id=-100,
+            message_id=11,
+            uid=100,
+            slot=1,
+        )
+        client = SimpleNamespace(get=AsyncMock(return_value="abc123"))
+
+        with patch("shared.auth.handoff._client", return_value=client), patch(
+            "shared.auth.handoff.get_handoff", AsyncMock(return_value=handoff)
+        ):
+            from shared.auth.handoff import legacy_handoff
+
+            resolved = await legacy_handoff(42, 100, 1, -100, 11)
+
+        self.assertEqual(resolved, handoff)
+
+    async def test_legacy_lookup_rejects_forged_destination(self):
+        from shared.auth.handoff import HandoffError, legacy_handoff
+
+        client = SimpleNamespace(get=AsyncMock(return_value=None))
+        with patch("shared.auth.handoff._client", return_value=client):
+            with self.assertRaises(HandoffError):
+                await legacy_handoff(42, 100, 1, -999, 777)
+
+    def test_legacy_start_param_has_five_segments(self):
+        from bot.handlers.cards.kb import make_back_kb
+
+        kb = make_back_kb(
+            42,
+            1,
+            100,
+            "march_bot",
+            -100,
+            11,
+            handoff_reference="compact",
+        )
+        url = kb.inline_keyboard[-1][0].url
+        startapp = url.split("startapp=", 1)[1]
+        parts = startapp.split("_")
+        self.assertGreaterEqual(len(parts), 4)
+        self.assertEqual(parts[:4], ["100", "1", "-100", "11"])
+        self.assertEqual("_".join(parts[4:]), "march_bot")
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,14 +5,14 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.DB.repo.user_repo import UserRepo
-from bot.DB.repo.tele_group_repo import TeleGroupRepo
-from bot.DB.repo.users_in_group_repo import UsersInGroupRepo
-from bot.DB.asyncsessions import session_factory
+from DB.repo.user_repo import UserRepo
+from DB.repo.tele_group_repo import TeleGroupRepo
+from DB.repo.users_in_group_repo import UsersInGroupRepo
+from DB.asyncsessions import session_factory
 
-from bot.config.config import groups_record, users_record
+from shared.config.settings import groups_record, users_record
 
-from bot.services.UG_cache import load_users, load_groups
+from shared.runtime import load_users, load_groups
 
 logger = logging.getLogger(__name__)
 

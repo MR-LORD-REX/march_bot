@@ -4,7 +4,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters import Command
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.config.config import CHANNEL_LINK
+from shared.config.settings import CHANNEL_LINK
 
 rt=Router()
 

@@ -6,10 +6,10 @@ from typing import Any
 
 from aiogram import Bot
 
-from bot.config.config import ADMIN_GC_ID
-from bot.DB.models.reports import Report
-from bot.DB.repo.report_repo import ReportRepo
-from bot.DB.repo.user_repo import UserRepo
+from shared.config.settings import ADMIN_GC_ID
+from DB.models.reports import Report
+from DB.repo.report_repo import ReportRepo
+from DB.repo.user_repo import UserRepo
 
 logger = logging.getLogger(__name__)
 
@@ -22,16 +22,21 @@ def _user_line(user: Any) -> str:
 
 
 def admin_text(report: Report, user: Any) -> str:
+    # Telegram parses this message as HTML by default. Escape every dynamic
+    # field: reporter usernames and IDs are user-controlled and can otherwise
+    # contain tags like <message>, which rejects the entire notification.
+    username = user.username if user and user.username else (
+        user.display_name if user else "unknown"
+    )
     return (
         f"Report #{report.id}\n"
         f"Type: {html.escape(str(report.report_type))}\n"
-        f"UID: {report.uid or 'unknown'}\n"
-        f"{_user_line(user)}\n"
-        f"Origin chat: {report.origin_chat_id or 'unknown'}\n"
-        f"Origin message: {report.origin_message_id or 'unknown'}\n\n"
-        f"Reply with /r {report.id} <message> to answer the reporter."
+        f"UID: {html.escape(str(report.uid or 'unknown'))}\n"
+        f"User: {html.escape(str(username or 'unknown'))} ({report.reporter_id})\n"
+        f"Origin chat: {html.escape(str(report.origin_chat_id or 'unknown'))}\n"
+        f"Origin message: {html.escape(str(report.origin_message_id or 'unknown'))}\n\n"
+        f"Reply with /r {report.id} &lt;message&gt; to answer the reporter."
     )
-
 
 async def create_or_get_report(
     session,

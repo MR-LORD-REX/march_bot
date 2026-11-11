@@ -13,14 +13,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 import asyncio
 
-from bot.config.config import OWNER_TELE_ID , cmdavailability , ADMIN_GC_ID
-from bot.auth.authority import get_authority, require_authority
+from shared.config.settings import OWNER_TELE_ID , cmdavailability , ADMIN_GC_ID
+from shared.auth.authority import get_authority, require_authority
 from bot.services.reports.workflow import create_or_get_report, notify_report_created, deliver_reply
-from bot.DB.repo.admin_repo import AdminRepo
-from bot.DB.repo.tele_group_repo import TeleGroupRepo
-from bot.DB.repo.user_repo import UserRepo
-from bot.DB.repo.report_repo import ReportRepo
-from bot.DB.repo.cmd_meta_repo import CommandMetaRepo
+from DB.repo.admin_repo import AdminRepo
+from DB.repo.tele_group_repo import TeleGroupRepo
+from DB.repo.user_repo import UserRepo
+from DB.repo.report_repo import ReportRepo
+from DB.repo.cmd_meta_repo import CommandMetaRepo
 
 rt = Router()
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ async def _broadcast_media(message: Message, db_session: AsyncSession, media_typ
         await message.reply(f"Please reply to a {label} (or album) to broadcast")
         return
 
-    from bot.core.main import bot
+    from shared.runtime import bot_runtime
 
     groups = await TeleGroupRepo(db_session).get_all()
     album = _resolve_album(source)
@@ -294,7 +294,7 @@ async def add_api(message: Message, db_session: AsyncSession, command: CommandOb
     api_name, api_key = parts[0], parts[1]
 
     from bot.services.lorebot.config import LORE_MODELS
-    from bot.DB.repo.ai_api_repo import AiApiRepo
+    from DB.repo.ai_api_repo import AiApiRepo
     from bot.services.lorebot.runtime import reload_pool, quota_manager
 
     entry = await AiApiRepo(db_session).add_key(api_name, api_key, LORE_MODELS)
@@ -335,7 +335,7 @@ async def remove_api(message: Message, db_session: AsyncSession, command: Comman
         await message.reply("Usage: /remove_api <name>", parse_mode=None)
         return
 
-    from bot.DB.repo.ai_api_repo import AiApiRepo
+    from DB.repo.ai_api_repo import AiApiRepo
     from bot.services.lorebot.runtime import reload_pool, quota_manager
 
     if not await AiApiRepo(db_session).remove_key(api_name):
@@ -364,7 +364,7 @@ async def toggle_api(message: Message, db_session: AsyncSession, command: Comman
         await message.reply("Usage: /toggle_api <name>", parse_mode=None)
         return
 
-    from bot.DB.repo.ai_api_repo import AiApiRepo
+    from DB.repo.ai_api_repo import AiApiRepo
     from bot.services.lorebot.runtime import reload_pool
 
     repo = AiApiRepo(db_session)
@@ -391,7 +391,7 @@ async def list_api(message: Message, db_session: AsyncSession):
         logger.warning(f"Unauthorized list_api attempt: user {tele_id}")
         return
 
-    from bot.DB.repo.ai_api_repo import AiApiRepo
+    from DB.repo.ai_api_repo import AiApiRepo
 
     keys = await AiApiRepo(db_session).get_all_with_models()
     if not keys:
@@ -474,7 +474,7 @@ async def lore_config(message: Message, db_session: AsyncSession, command: Comma
         logger.warning(f"Unauthorized lore_config attempt: user {tele_id}")
         return
 
-    from bot.DB.repo.lore_settings_repo import LoreSettingsRepo, TUNABLES
+    from DB.repo.lore_settings_repo import LoreSettingsRepo, TUNABLES
     from bot.services.lorebot.runtime import reload_settings, settings
 
     args = (command.args or "").split()
@@ -536,7 +536,7 @@ async def lore_spoiler(message: Message, db_session: AsyncSession, command: Comm
         logger.warning(f"Unauthorized lore_spoiler attempt: user {tele_id}")
         return
 
-    from bot.DB.repo.lore_settings_repo import LoreSettingsRepo
+    from DB.repo.lore_settings_repo import LoreSettingsRepo
     from bot.services.lorebot.runtime import reload_settings, settings
 
     arg = (command.args or "").strip().lower()
@@ -674,7 +674,7 @@ async def broadcast(message: Message, db_session: AsyncSession):
         await message.reply("Please reply to the text message to broadcast")
         return
 
-    from bot.core.main import bot
+    from shared.runtime import bot_runtime
 
     groups = await TeleGroupRepo(db_session).get_all()
 
@@ -838,7 +838,7 @@ async def disable_command(message: Message, db_session: AsyncSession):
     await CommandMetaRepo(db_session).disable_command(command, reason)
     await db_session.commit()
     await message.reply("Command disabled successfully")
-    from bot.core.main import bot
+    from shared.runtime import bot_runtime
     await bot.send_message(
         ADMIN_GC_ID,
         f"Command /{command} has been disabled by @{message.from_user.username if message.from_user.username else message.from_user.display_name} with the reason: {reason}"
@@ -903,7 +903,7 @@ async def send(message: Message, db_session: AsyncSession):
 
     to_send = parts[1]
 
-    from bot.core.main import bot
+    from shared.runtime import bot_runtime
     await bot.send_message(message.chat.id, to_send)
 
 
@@ -939,7 +939,7 @@ async def delete(message: Message, db_session: AsyncSession):
         await message.reply("Please reply to the message to delete")
         return
 
-    from bot.core.main import bot
+    from shared.runtime import bot_runtime
 
     try:
         await bot.delete_message(
@@ -1130,7 +1130,7 @@ async def handle_ban_user(cb:CallbackQuery,db_session:AsyncSession):
     await UserRepo(db_session).ban_user(tele_id)
     await db_session.commit()
     await cb.answer("user banned successfully",show_alert=True)
-    from bot.core.main import bot
+    from shared.runtime import bot_runtime
     user=await UserRepo(db_session).get_by_tele_id(tele_id)
     if not user:
         await cb.answer("user not found",show_alert=True)
@@ -1155,7 +1155,7 @@ async def handle_unban_user(cb:CallbackQuery,db_session:AsyncSession):
     await UserRepo(db_session).unban_user(tele_id)
     await db_session.commit()
     await cb.answer("user unbanned successfully",show_alert=True)
-    from bot.core.main import bot
+    from shared.runtime import bot_runtime
     user=await UserRepo(db_session).get_by_tele_id(tele_id)
     if not user:
         await cb.answer("user not found",show_alert=True)

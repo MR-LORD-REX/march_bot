@@ -8,10 +8,10 @@ from hsr_cards import HonkaiStarrail
 from hsr_cards.models.auth import Cookies
 
 
-from bot.DB.repo.user_repo import UserRepo
-from bot.DB.repo.game_ids_repo import GameIDs_repo
-from bot.DB.repo.user_setting_repo import UserSettingsRepo
-from bot.DB.repo.cache_repo import CacheRepo
+from DB.repo.user_repo import UserRepo
+from DB.repo.game_ids_repo import GameIDs_repo
+from DB.repo.user_setting_repo import UserSettingsRepo
+from DB.repo.cache_repo import CacheRepo
 from bot.utils.auth import encrypt_token , decrypt_token
 
 logger=logging.getLogger(__name__)

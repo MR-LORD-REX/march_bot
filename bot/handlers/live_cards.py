@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 from datetime import datetime, timezone , timedelta
 
-from bot.config.config import users_record, scheduler
-from bot.DB.repo.scheduler_repo import SchedulerRepo
-from bot.DB.repo.game_ids_repo import GameIDs_repo
+from shared.config.settings import users_record, scheduler
+from DB.repo.scheduler_repo import SchedulerRepo
+from DB.repo.game_ids_repo import GameIDs_repo
 from bot.utils.auth import decrypt_token
 
 from bot.services.live_cards import (

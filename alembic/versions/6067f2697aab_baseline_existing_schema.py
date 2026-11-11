@@ -28,8 +28,26 @@ branch_labels = None
 depends_on = None
 
 
+def _has_table(name: str) -> bool:
+    return sa.inspect(op.get_bind()).has_table(name)
+
+
+def _create_table(name: str, *columns, **kwargs) -> None:
+    if not _has_table(name):
+        op.create_table(name, *columns, **kwargs)
+
+
+def _create_index(name: str, table_name: str, columns, **kwargs) -> None:
+    inspector = sa.inspect(op.get_bind())
+    if not inspector.has_table(table_name):
+        return
+    existing = {index["name"] for index in inspector.get_indexes(table_name)}
+    if name not in existing:
+        op.create_index(name, table_name, columns, **kwargs)
+
+
 def upgrade() -> None:
-    op.create_table(
+    _create_table(
         "users",
         sa.Column("telegram_id", sa.BIGINT(), autoincrement=True, nullable=False),
         sa.Column("username", sa.String(length=255), nullable=True),
@@ -39,7 +57,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("telegram_id"),
     )
 
-    op.create_table(
+    _create_table(
         "telegram_groups",
         sa.Column("group_id", sa.BIGINT(), autoincrement=True, nullable=False),
         sa.Column("group_name", sa.String(), nullable=True),
@@ -48,7 +66,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("group_id"),
     )
 
-    op.create_table(
+    _create_table(
         "admins",
         sa.Column("telegram_id", sa.BIGINT(), autoincrement=True, nullable=False),
         sa.Column("username", sa.String(), nullable=True),
@@ -61,7 +79,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("telegram_id"),
     )
 
-    op.create_table(
+    _create_table(
         "ai_api",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("api_name", sa.String(), nullable=False),
@@ -71,7 +89,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("api_name"),
     )
 
-    op.create_table(
+    _create_table(
         "ai_models",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("model_name", sa.String(), nullable=False),
@@ -84,7 +102,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("api_name", "model_name", name="uq_ai_models_api_model"),
     )
 
-    op.create_table(
+    _create_table(
         "cache",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("telegram_id", sa.BIGINT(), nullable=False),
@@ -105,14 +123,14 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["telegram_id"], ["users.telegram_id"]),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
+    _create_index(
         "uq_cache_char",
         "cache",
         ["telegram_id", "type", "slot"],
         unique=True,
         postgresql_where=sa.text("type = 'CHAR'"),
     )
-    op.create_index(
+    _create_index(
         "uq_cache_non_char",
         "cache",
         ["telegram_id", "type"],
@@ -120,7 +138,7 @@ def upgrade() -> None:
         postgresql_where=sa.text("type != 'CHAR'"),
     )
 
-    op.create_table(
+    _create_table(
         "commands_meta",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("cmd", sa.String(), nullable=False),
@@ -130,7 +148,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("cmd"),
     )
 
-    op.create_table(
+    _create_table(
         "game_ids",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("user_id", sa.BIGINT(), nullable=False),
@@ -140,7 +158,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.telegram_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
+    _create_index(
         "one_active_idx",
         "game_ids",
         ["user_id", "game_id"],
@@ -148,7 +166,7 @@ def upgrade() -> None:
         postgresql_where=sa.text("active = true"),
     )
 
-    op.create_table(
+    _create_table(
         "group_command_settings",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("group_id", sa.BIGINT(), nullable=False),
@@ -161,7 +179,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("group_id", "cmd", name="uq_group_cmd"),
     )
 
-    op.create_table(
+    _create_table(
         "lore_settings",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("max_turns", sa.Integer(), nullable=False),
@@ -177,7 +195,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
 
-    op.create_table(
+    _create_table(
         "scheduler_meta",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("user_id", sa.BIGINT(), nullable=False),
@@ -196,7 +214,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("task_id"),
     )
 
-    op.create_table(
+    _create_table(
         "user_settings",
         sa.Column("user_id", sa.BIGINT(), nullable=False),
         sa.Column("profile_template", sa.Integer(), nullable=False),
@@ -210,7 +228,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("user_id"),
     )
 
-    op.create_table(
+    _create_table(
         "users_in_group",
         sa.Column("user_id", sa.BIGINT(), nullable=False),
         sa.Column("group_id", sa.BIGINT(), nullable=False),

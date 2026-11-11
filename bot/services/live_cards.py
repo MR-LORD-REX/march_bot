@@ -8,8 +8,8 @@ from typing import List, Dict, Literal
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
 
-from bot.DB.repo.game_ids_repo import GameIDs_repo
-from bot.DB.repo.user_setting_repo import UserSettingsRepo
+from DB.repo.game_ids_repo import GameIDs_repo
+from DB.repo.user_setting_repo import UserSettingsRepo
 from bot.utils.images import image_to_tgFile
 from bot.utils.auth import decrypt_token
 
@@ -111,8 +111,8 @@ async def get_live_stats_card(db_session,tele_id:int)->LiveStatsRes:
 
 
 async def send_recovery_notification(tele_id:int, retries:int=3):
-    from bot.core.main import bot
-    from bot.DB.asyncsessions import session_factory
+    from shared.runtime import bot_runtime
+    from DB.asyncsessions import session_factory
     
     async with session_factory() as db_session:
         for attempt in range(retries):
@@ -143,8 +143,8 @@ async def send_recovery_notification(tele_id:int, retries:int=3):
                     
 
 async def send_daily_reminder():
-    from bot.core.main import bot
-    from bot.DB.asyncsessions import session_factory
+    from shared.runtime import bot_runtime
+    from DB.asyncsessions import session_factory
     
     async with session_factory() as db_session:
         users=await UserSettingsRepo(db_session).get_all_users_with_daily_reminder()

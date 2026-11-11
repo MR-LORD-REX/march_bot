@@ -49,8 +49,8 @@ async def spoiler_enabled(chat_id: int, is_group: bool) -> bool:
         return settings.spoiler_default
 
     try:
-        from bot.DB.asyncsessions import session_factory
-        from bot.DB.repo.tele_group_repo import TeleGroupRepo
+        from DB.asyncsessions import session_factory
+        from DB.repo.tele_group_repo import TeleGroupRepo
 
         async with session_factory() as session:
             group = await TeleGroupRepo(session).get_group(chat_id)

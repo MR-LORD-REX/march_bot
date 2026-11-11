@@ -9,9 +9,9 @@ from aiogram.types import (
 from aiogram import Router, F 
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from bot.DB.repo.cache_repo import CacheRepo
-from bot.DB.asyncsessions import session_factory
-from bot.config.config import users_record , BOT_TOKEN
+from DB.repo.cache_repo import CacheRepo
+from DB.asyncsessions import session_factory
+from shared.config.settings import users_record , BOT_TOKEN
 
 rt = Router()
 

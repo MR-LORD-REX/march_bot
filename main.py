@@ -1,7 +1,7 @@
 from asyncio import run
 import logging
 
-from bot.core.main import start
+from server.runtime import start
 
 logger = logging.getLogger(__name__)
 

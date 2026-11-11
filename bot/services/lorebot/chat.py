@@ -14,7 +14,7 @@ import logging
 
 from pydantic import BaseModel
 
-from bot.config.config import QDRANT_API_KEY, QDRANT_URL, EMBEDDING_URL
+from shared.config.settings import QDRANT_API_KEY, QDRANT_URL, EMBEDDING_URL
 from bot.services.lorebot.config import (
     REWRITE_PROMPT,
     SYSTEM_PROMPT,

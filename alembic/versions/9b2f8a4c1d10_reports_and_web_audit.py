@@ -15,8 +15,26 @@ branch_labels = None
 depends_on = None
 
 
+def _has_table(name: str) -> bool:
+    return sa.inspect(op.get_bind()).has_table(name)
+
+
+def _create_table(name: str, *columns, **kwargs) -> None:
+    if not _has_table(name):
+        op.create_table(name, *columns, **kwargs)
+
+
+def _create_index(name: str, table_name: str, columns) -> None:
+    inspector = sa.inspect(op.get_bind())
+    if not inspector.has_table(table_name):
+        return
+    existing = {index["name"] for index in inspector.get_indexes(table_name)}
+    if name not in existing:
+        op.create_index(name, table_name, columns)
+
+
 def upgrade() -> None:
-    op.create_table(
+    _create_table(
         "reports",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("reporter_id", sa.BIGINT(), nullable=False),
@@ -34,10 +52,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["reporter_id"], ["users.telegram_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_reports_status_created", "reports", ["status", "created_at"])
-    op.create_index("ix_reports_reporter", "reports", ["reporter_id", "created_at"])
+    _create_index("ix_reports_status_created", "reports", ["status", "created_at"])
+    _create_index("ix_reports_reporter", "reports", ["reporter_id", "created_at"])
 
-    op.create_table(
+    _create_table(
         "report_messages",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("report_id", sa.Integer(), nullable=False),
@@ -51,9 +69,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["report_id"], ["reports.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_report_messages_report", "report_messages", ["report_id", "created_at"])
+    _create_index("ix_report_messages_report", "report_messages", ["report_id", "created_at"])
 
-    op.create_table(
+    _create_table(
         "report_events",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("report_id", sa.Integer(), nullable=False),
@@ -64,9 +82,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["report_id"], ["reports.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_report_events_report", "report_events", ["report_id", "created_at"])
+    _create_index("ix_report_events_report", "report_events", ["report_id", "created_at"])
 
-    op.create_table(
+    _create_table(
         "web_sessions",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("token_hash", sa.String(length=64), nullable=False),
@@ -78,9 +96,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("token_hash"),
     )
-    op.create_index("ix_web_sessions_user", "web_sessions", ["telegram_id", "expires_at"])
+    _create_index("ix_web_sessions_user", "web_sessions", ["telegram_id", "expires_at"])
 
-    op.create_table(
+    _create_table(
         "web_handoffs",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("token", sa.String(length=128), nullable=False),
@@ -96,7 +114,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("token"),
     )
-    op.create_index("ix_web_handoffs_user", "web_handoffs", ["telegram_id", "created_at"])
+    _create_index("ix_web_handoffs_user", "web_handoffs", ["telegram_id", "created_at"])
 
 
 def downgrade() -> None:

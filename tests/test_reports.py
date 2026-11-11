@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from bot.DB.models.reports import Report
+from DB.models.reports import Report
 from bot.services.reports.workflow import (
     _reply_text,
     create_or_get_report,
@@ -181,6 +181,26 @@ class ReportWorkflowTests(unittest.IsolatedAsyncioTestCase):
         repo_cls.return_value.add_event.assert_awaited_once_with(
             report.id, None, "admin_notified"
         )
+
+class ReportNotificationTests(unittest.TestCase):
+    def test_admin_text_escapes_reporter_controlled_fields(self):
+        from bot.services.reports.workflow import admin_text
+
+        report = Report(
+            id=1,
+            reporter_id=42,
+            report_type="<b>PFP</b>",
+            uid=0,
+            origin_chat_id=None,
+            origin_message_id=None,
+        )
+        user = SimpleNamespace(username="<message>bad", display_name=None)
+        text = admin_text(report, user)
+
+        self.assertIn("&lt;b&gt;PFP&lt;/b&gt;", text)
+        self.assertIn("&lt;message&gt;bad", text)
+        self.assertNotIn("<b>", text)
+        self.assertNotIn("<message>", text)
 
 if __name__ == "__main__":
     unittest.main()

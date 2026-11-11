@@ -4,7 +4,7 @@ import logging
 
 from aiogram import Bot
 
-from bot.config.config import ADMIN_GC_ID
+from shared.config.settings import ADMIN_GC_ID
 
 logger = logging.getLogger(__name__)
 

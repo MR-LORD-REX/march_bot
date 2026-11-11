@@ -1,7 +1,6 @@
-FROM python:3.11-slim-bullseye
+FROM python:3.12-slim-bookworm
 
 WORKDIR /app
-
 
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
@@ -15,11 +14,13 @@ RUN git clone --depth=1 https://github.com/DEViantUA/StarRailCardData.git /tmp/S
     ASSETS_DIR=$(python -c "import starrailcard, os; print(os.path.join(os.path.dirname(starrailcard.__file__), 'src', 'assets'))") && \
     cp -r /tmp/StarRailCardData/asset/. "$ASSETS_DIR/" && \
     rm -rf /tmp/StarRailCardData
-    
+
 RUN pip install "numpy<2" --force-reinstall --no-cache-dir
 
 COPY bot ./bot
-
+COPY server ./server
+COPY DB ./DB
+COPY shared ./shared
 COPY alembic.ini .
 COPY alembic ./alembic
 
@@ -27,4 +28,4 @@ COPY main.py .
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "alembic upgrade head && python main.py"]
+CMD ["python", "main.py"]

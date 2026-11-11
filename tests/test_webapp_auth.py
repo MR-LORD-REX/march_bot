@@ -5,7 +5,7 @@ import time
 import unittest
 from urllib.parse import quote, unquote
 
-from bot.auth.telegram_webapp import InitDataError, verify_init_data
+from shared.auth.telegram_webapp import InitDataError, verify_init_data
 
 
 def sign(fields: dict[str, str], token: str = "123:test") -> str:

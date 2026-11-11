@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
-from bot.api.webhook import create_app
+from server.app import create_app
 
 
 class AdminPanelTests(unittest.TestCase):
@@ -43,7 +43,7 @@ class AdminPanelTests(unittest.TestCase):
 
     def test_login_rejects_reused_token(self):
         with patch(
-            "bot.admin.panel.routes.consume_login_token",
+            "server.admin.panel.routes.consume_login_token",
             AsyncMock(return_value=None),
         ):
             response = self.client.get("/admin/login?token=bad", follow_redirects=False)
@@ -52,7 +52,7 @@ class AdminPanelTests(unittest.TestCase):
 
     def test_panel_blocks_owner_authority_escalation(self):
         with patch(
-            "bot.admin.panel.routes.require_panel_user",
+            "server.admin.panel.routes.require_panel_user",
             AsyncMock(return_value={"telegram_id": 1, "authority": "owner"}),
         ):
             response = self.client.post(

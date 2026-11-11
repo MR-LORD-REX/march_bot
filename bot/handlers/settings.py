@@ -8,10 +8,10 @@ from aiogram.types import FSInputFile
 import logging
 from pathlib import Path
 
-from bot.DB.repo.user_setting_repo import UserSettingsRepo
-from bot.DB.repo.user_repo import UserRepo
-from bot.DB.repo.game_ids_repo import GameIDs_repo
-from bot.config.config import ADMIN_GC_ID
+from DB.repo.user_setting_repo import UserSettingsRepo
+from DB.repo.user_repo import UserRepo
+from DB.repo.game_ids_repo import GameIDs_repo
+from shared.config.settings import ADMIN_GC_ID
 
 rt = Router()
 logger = logging.getLogger(__name__)
@@ -240,7 +240,7 @@ async def handle_suggestions(msg: Message, db_session: AsyncSession):
     text=f"Suggestion from {user.username} - {user.display_name}\n\n{suggestion}"
     kb=InlineKeyboardBuilder()
     kb.button(text="Ban User", callback_data=f"ban_user:{tele_id}")
-    from bot.core.main import bot
+    from shared.runtime import bot_runtime
     await bot.send_message(ADMIN_GC_ID,text,reply_markup=kb.as_markup())
     await msg.reply("Suggestion sent to bot admins. Thank you for your feedback! 🌸")
     await db_session.commit()

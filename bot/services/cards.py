@@ -11,10 +11,10 @@ import ast
 import random
 from honkai_cards import HSR , Teammate
 
-from bot.DB.repo.game_ids_repo import GameIDs_repo
-from bot.DB.repo.user_setting_repo import UserSettingsRepo
-from bot.DB.repo.cache_repo import CacheRepo
-from bot.config.config import PROXY
+from DB.repo.game_ids_repo import GameIDs_repo
+from DB.repo.user_setting_repo import UserSettingsRepo
+from DB.repo.cache_repo import CacheRepo
+from shared.config.settings import PROXY
 
 logger=logging.getLogger(__name__)
 

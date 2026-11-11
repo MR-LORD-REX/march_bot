@@ -20,9 +20,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
-from bot.config.config import OWNER_TELE_ID
-from bot.DB.repo.group_settings_repo import GroupCommandSettingsRepo, GROUP_TOGGLEABLE
-from bot.DB.repo.tele_group_repo import TeleGroupRepo
+from shared.config.settings import OWNER_TELE_ID
+from DB.repo.group_settings_repo import GroupCommandSettingsRepo, GROUP_TOGGLEABLE
+from DB.repo.tele_group_repo import TeleGroupRepo
 from bot.services.lorebot.runtime import settings as lore_settings
 
 rt = Router()

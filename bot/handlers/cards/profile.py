@@ -16,11 +16,11 @@ from honkai_cards import Teammate
 from bot.utils.images import image_to_tgFile
 from bot.utils.gifs import get_gif
 from bot.handlers.cards.kb import make_report_keboard , make_profile_keyboard , make_back_kb
-from bot.auth.handoff import create_handoff
-from bot.auth.mini_app import encode_handoff
+from shared.auth.handoff import create_handoff
+from shared.auth.mini_app import encode_handoff
 
-from bot.DB.repo.game_ids_repo import GameIDs_repo
-from bot.DB.repo.cache_repo import CacheRepo
+from DB.repo.game_ids_repo import GameIDs_repo
+from DB.repo.cache_repo import CacheRepo
 
 
 logger=logging.getLogger(__name__)
@@ -39,7 +39,7 @@ async def _delete_message(msg: Message) -> None:
 
 async def _update_cust_msg(chat_id: int, msg_id: int, card, kb) -> None:
     """Edit the original message with the generated custom team card."""
-    from bot.core.main import bot
+    from shared.runtime import bot_runtime
     try:
         if hasattr(card, 'read'):
             from aiogram.types import BufferedInputFile

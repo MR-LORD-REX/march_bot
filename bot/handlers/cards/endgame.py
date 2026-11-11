@@ -14,8 +14,8 @@ from bot.utils.images import image_to_tgFile
 from bot.utils.gifs import get_gif
 from bot.handlers.cards.kb import make_report_keboard , make_endgame_keyboard
 
-from bot.DB.repo.game_ids_repo import GameIDs_repo
-from bot.DB.repo.cache_repo import CacheRepo
+from DB.repo.game_ids_repo import GameIDs_repo
+from DB.repo.cache_repo import CacheRepo
 
 logger=logging.getLogger(__name__)
 

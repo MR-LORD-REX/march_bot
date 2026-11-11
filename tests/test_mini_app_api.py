@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
-from bot.api.webhook import create_app
+from server.app import create_app
 
 
 class MiniAppApiTests(unittest.TestCase):
@@ -16,6 +16,13 @@ class MiniAppApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
 
+    def test_public_config_exposes_backend_type(self):
+        response = self.client.get("/api/config")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("backend_url", payload)
+        self.assertIn(payload["backend_type"], {"local", "prod"})
+        self.assertNotIn("BOT_TOKEN", payload)
     def test_submit_team_rejects_invalid_init_data(self):
         response = self.client.post(
             "/submit_team",

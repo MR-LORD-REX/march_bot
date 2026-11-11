@@ -9,7 +9,7 @@ import logging
 
 from bot.services.lorebot.chat import ChatBot
 from bot.services.lorebot.quota import QuotaManager, pacific_day
-from bot.DB.repo.lore_settings_repo import LoreSettingsRepo
+from DB.repo.lore_settings_repo import LoreSettingsRepo
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ async def user_usage(user_id: int) -> tuple[int, int]:
 
 
 async def reload_settings() -> None:
-    from bot.DB.asyncsessions import session_factory
+    from DB.asyncsessions import session_factory
 
     try:
         async with session_factory() as session:
@@ -110,9 +110,9 @@ async def set_ask_enabled(enabled: bool, reason: str = "") -> None:
     """Flip /ask through the existing command-availability machinery so the
     CommandChecker middleware enforces it, and record whether quota (rather
     than an admin) was the one that turned it off."""
-    from bot.DB.asyncsessions import session_factory
-    from bot.DB.repo.cmd_meta_repo import CommandMetaRepo
-    from bot.config.config import cmdavailability
+    from DB.asyncsessions import session_factory
+    from DB.repo.cmd_meta_repo import CommandMetaRepo
+    from shared.config.settings import cmdavailability
 
     async with session_factory() as session:
         repo = CommandMetaRepo(session)
@@ -150,8 +150,8 @@ async def on_rpd_exhausted() -> None:
     )
     await set_ask_enabled(False, reason)
 
-    from bot.config.config import ADMIN_GC_ID
-    from bot.core.main import bot
+    from shared.config.settings import ADMIN_GC_ID
+    from shared.runtime import bot_runtime
 
     rows = await quota_manager.usage()
     used = sum(r["rpd_used"] for r in rows)
@@ -184,8 +184,8 @@ async def daily_quota_reset() -> None:
     await set_ask_enabled(True)
     logger.info("lore daily reset: /ask re-enabled")
 
-    from bot.config.config import ADMIN_GC_ID
-    from bot.core.main import bot
+    from shared.config.settings import ADMIN_GC_ID
+    from shared.runtime import bot_runtime
 
     try:
         await bot.send_message(

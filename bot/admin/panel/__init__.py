@@ -1,3 +1,1 @@
-from bot.admin.panel.routes import router
-
-__all__ = ["router"]
+"""Telegram-side entrypoints for the admin web panel."""
